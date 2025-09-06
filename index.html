@@ -1,51 +1,134 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Zappar AR</title>
-    <script src="https://libs.zappar.com/zappar-js/3.0.0/zappar.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Web AR with Zappar</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { display: block; }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+        }
+        #startButton {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        #zappar-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <script type="module">
-        import * as Zappar from '@zappar/zappar-js';
-        import * as THREE from 'three';
+    <button id="startButton">Начать AR_experience</button>
+    <div id="zappar-overlay"></div>
 
-        // Создаем pipeline
-        const pipeline = new Zappar.Pipeline();
-        
-        // Камера
-        const camera = new Zappar.Camera(pipeline);
-        
-        // Сцена Three.js
-        const scene = new THREE.Scene();
-        const renderer = new THREE.WebGLRenderer();
-        document.body.appendChild(renderer.domElement);
-        
-        // Маркер
-        const imageTracker = new Zappar.ImageTracker(pipeline);
-        imageTracker.loadTarget('your-marker.zpt'); // Загрузи свой маркер
-        
-        const imageAnchor = new Zappar.ImageAnchor(imageTracker);
-        scene.add(imageAnchor);
-        
-        // 3D модель
-        const loader = new THREE.GLTFLoader();
-        loader.load('models/your-model.glb', (gltf) => {
-            imageAnchor.add(gltf.scene);
-        });
-        
-        // Анимация
-        function animate() {
-            requestAnimationFrame(animate);
-            pipeline.process();
-            camera.updateFrame(pipeline);
-            renderer.render(scene, camera);
+    <script src="https://libs.zappar.com/zappar-threejs/4.0.0/zappar-threejs.js"></script>
+    <script>
+        // Основной код
+        async function startAR() {
+            document.getElementById('startButton').style.display = 'none';
+            
+            // Создаем сцену Three.js
+            const scene = new window.ZAPPAR.THREE.Scene();
+            
+            // Создаем renderer
+            const renderer = new window.ZAPPAR.THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            
+            // Создаем pipeline
+            const pipeline = new window.ZAPPAR.Pipeline();
+            
+            // Создаем камеру
+            const camera = new window.ZAPPAR.THREE.Camera(pipeline);
+            scene.add(camera);
+            
+            // Создаем источник видео
+            const source = new window.ZAPPAR.SourceCamera();
+            pipeline.source = source;
+            
+            // Запрашиваем доступ к камере
+            try {
+                await source.start();
+            } catch (e) {
+                alert('Ошибка доступа к камере: ' + e.message);
+                return;
+            }
+            
+            // Создаем трекер изображений
+            const imageTracker = new window.ZAPPAR.THREE.ImageTracker(pipeline);
+            
+            // Загружаем маркер (используем тестовый маркер Zappar)
+            // В реальном проекте замени на свой файл .zpt
+            await imageTracker.loadTarget('https://target-imgs.zappar.com/test-image.zpt');
+            
+            // Создаем anchor для маркера
+            const imageAnchor = new window.ZAPPAR.THREE.ImageAnchor(imageTracker);
+            scene.add(imageAnchor);
+            
+            // Добавляем простой куб для тестирования
+            const box = new window.ZAPPAR.THREE.Mesh(
+                new window.ZAPPAR.THREE.BoxGeometry(1, 1, 1),
+                new window.ZAPPAR.THREE.MeshBasicMaterial({ 
+                    color: 0x00ff00,
+                    transparent: true,
+                    opacity: 0.7 
+                })
+            );
+            box.position.set(0, 0, 0);
+            imageAnchor.add(box);
+            
+            // Добавляем свет
+            const light = new window.ZAPPAR.THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(0, 0, 1);
+            scene.add(light);
+            
+            // Анимация
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Обновляем pipeline
+                pipeline.frameUpdate();
+                
+                // Рендерим сцену
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            // Обработка изменения размера окна
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
         }
-        animate();
+        
+        // Обработчик кнопки запуска
+        document.getElementById('startButton').addEventListener('click', startAR);
+        
+        // Для тестирования - можно сразу запустить
+        // startAR();
     </script>
 </body>
 </html>
