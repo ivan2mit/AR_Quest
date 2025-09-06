@@ -2,36 +2,50 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR App</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <title>Zappar AR</title>
+    <script src="https://libs.zappar.com/zappar-js/3.0.0/zappar.js"></script>
     <style>
-        .arjs-loader { display: none; }
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
     </style>
 </head>
-<body style="margin: 0; overflow: hidden;">
-    <a-scene embedded arjs="sourceType: webcam; detectionMode: mono; debugUIEnabled: false;">
-        <a-marker preset="hiro"> <!-- или используй Aruco -->
-            <a-entity
-                gltf-model="url(your-model.glb)"
-                animation-mixer
-                scale="0.5 0.5 0.5"
-                position="0 0 0"
-                id="model"
-            ></a-entity>
-        </a-marker>
-        <a-entity camera></a-entity>
-    </a-scene>
+<body>
+    <script type="module">
+        import * as Zappar from '@zappar/zappar-js';
+        import * as THREE from 'three';
 
-    <audio id="sound" src="your-sound.mp3" preload="auto"></audio>
-
-    <script>
-        const model = document.querySelector('#model');
-        const sound = document.getElementById('sound');
-
-        model.addEventListener('model-loaded', () => {
-            sound.play();
+        // Создаем pipeline
+        const pipeline = new Zappar.Pipeline();
+        
+        // Камера
+        const camera = new Zappar.Camera(pipeline);
+        
+        // Сцена Three.js
+        const scene = new THREE.Scene();
+        const renderer = new THREE.WebGLRenderer();
+        document.body.appendChild(renderer.domElement);
+        
+        // Маркер
+        const imageTracker = new Zappar.ImageTracker(pipeline);
+        imageTracker.loadTarget('your-marker.zpt'); // Загрузи свой маркер
+        
+        const imageAnchor = new Zappar.ImageAnchor(imageTracker);
+        scene.add(imageAnchor);
+        
+        // 3D модель
+        const loader = new THREE.GLTFLoader();
+        loader.load('models/your-model.glb', (gltf) => {
+            imageAnchor.add(gltf.scene);
         });
+        
+        // Анимация
+        function animate() {
+            requestAnimationFrame(animate);
+            pipeline.process();
+            camera.updateFrame(pipeline);
+            renderer.render(scene, camera);
+        }
+        animate();
     </script>
 </body>
 </html>
