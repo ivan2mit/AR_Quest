@@ -13,7 +13,7 @@
     <a-scene embedded arjs="sourceType: webcam; detectionMode: mono; debugUIEnabled: false;">
         <a-marker preset="hiro"> <!-- или используй Aruco -->
             <a-entity
-                gltf-model="url(models/your-model.glb)"
+                gltf-model="url(your-model.glb)"
                 animation-mixer
                 scale="0.5 0.5 0.5"
                 position="0 0 0"
@@ -23,7 +23,7 @@
         <a-entity camera></a-entity>
     </a-scene>
 
-    <audio id="sound" src="sounds/your-sound.mp3" preload="auto"></audio>
+    <audio id="sound" src="your-sound.mp3" preload="auto"></audio>
 
     <script>
         const model = document.querySelector('#model');
