@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>AR App</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <style>
+        .arjs-loader { display: none; }
+    </style>
+</head>
+<body style="margin: 0; overflow: hidden;">
+    <a-scene embedded arjs="sourceType: webcam; detectionMode: mono; debugUIEnabled: false;">
+        <a-marker preset="hiro"> <!-- или используй Aruco -->
+            <a-entity
+                gltf-model="url(models/your-model.glb)"
+                animation-mixer
+                scale="0.5 0.5 0.5"
+                position="0 0 0"
+                id="model"
+            ></a-entity>
+        </a-marker>
+        <a-entity camera></a-entity>
+    </a-scene>
+
+    <audio id="sound" src="sounds/your-sound.mp3" preload="auto"></audio>
+
+    <script>
+        const model = document.querySelector('#model');
+        const sound = document.getElementById('sound');
+
+        model.addEventListener('model-loaded', () => {
+            sound.play();
+        });
+    </script>
+</body>
+</html>
