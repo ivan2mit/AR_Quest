@@ -67,7 +67,9 @@
     <!-- Подключаем библиотеки -->
     <script src="three.min.js"></script>
     <script src="cv.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
     <script src="aruco.js"></script>
+    console.log('GLTFLoader доступен:', typeof THREE.GLTFLoader !== 'undefined');
     
     <script>
         let video, scene, camera, renderer, model;
