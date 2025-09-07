@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Простой AR с Aruco</title>
+    <title>AR с Aruco-маркерами</title>
     <style>
         body { 
             margin: 0; 
@@ -24,6 +24,16 @@
             cursor: pointer;
             z-index: 1000;
         }
+        #markerHint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            z-index: 1000;
+        }
         canvas { 
             display: block; 
         }
@@ -31,39 +41,41 @@
 </head>
 <body>
     <button id="startButton">Запустить AR</button>
+    <div id="markerHint">Покажите камеру на Aruco-маркер</div>
     
     <script src="three.min.js"></script>
     <script src="aruco.js"></script>
     
     <script>
-        let video, canvas, ctx, scene, camera, renderer, model;
-        let detector, markers = {};
+        let video, scene, camera, renderer, model;
+        let markerDetector, cameraParam, posit;
+        let canvas, ctx;
         
-        // Генерация Aruco-маркера 5x5
-        function generateArucoMarker(id) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 200;
-            canvas.height = 200;
-            const ctx = canvas.getContext('2d');
+        // Генерация тестового Aruco-маркера
+        function generateArucoMarker() {
+            const markerCanvas = document.createElement('canvas');
+            markerCanvas.width = 200;
+            markerCanvas.height = 200;
+            const markerCtx = markerCanvas.getContext('2d');
             
-            // Простой паттерн для демонстрации
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, 200, 200);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(20, 20, 160, 160);
+            // Белый фон
+            markerCtx.fillStyle = '#fff';
+            markerCtx.fillRect(0, 0, 200, 200);
             
-            // Бинарный паттерн
-            const pattern = id.toString(2).padStart(25, '0');
-            let index = 0;
-            for(let y = 0; y < 5; y++) {
-                for(let x = 0; x < 5; x++) {
-                    ctx.fillStyle = pattern[index] === '1' ? '#000' : '#fff';
-                    ctx.fillRect(40 + x*24, 40 + y*24, 20, 20);
-                    index++;
-                }
-            }
+            // Черная рамка
+            markerCtx.fillStyle = '#000';
+            markerCtx.fillRect(20, 20, 160, 160);
             
-            return canvas.toDataURL();
+            // Простой паттерн 5x5
+            markerCtx.fillStyle = '#000';
+            // Рисуем крест для демонстрации
+            markerCtx.fillRect(80, 40, 40, 40); // верх
+            markerCtx.fillRect(40, 80, 40, 40); // лево
+            markerCtx.fillRect(80, 80, 40, 40); // центр
+            markerCtx.fillRect(120, 80, 40, 40); // право
+            markerCtx.fillRect(80, 120, 40, 40); // низ
+            
+            return markerCanvas.toDataURL();
         }
         
         // Инициализация камеры
@@ -75,8 +87,8 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
                     } 
                 });
                 video.srcObject = stream;
@@ -86,14 +98,29 @@
             }
         }
         
+        // Инициализация AR
+        function initAR() {
+            // Создаем canvas для обработки изображения
+            canvas = document.createElement('canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Инициализируем детектор маркеров
+            markerDetector = new AR.MarkerDetector();
+            
+            // Параметры камеры (упрощенные)
+            cameraParam = new AR.Camera(640, 480);
+            
+            // Алгоритм позиционирования
+            posit = new AR.Posit(100, 600);
+        }
+        
         // Инициализация Three.js
         function initThree() {
             // Создаем сцену
             scene = new THREE.Scene();
             
-            // Создаем камеру
+            // Создаем камеру (будет обновляться из AR)
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
             
             // Создаем рендерер
             renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -101,12 +128,19 @@
             document.body.appendChild(renderer.domElement);
             
             // Добавляем свет
-            const light = new THREE.AmbientLight(0xffffff, 1);
-            scene.add(light);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
             
-            // Создаем простой куб вместо модели
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Создаем 3D модель (куб для демонстрации)
             const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0x00ff00,
+                shininess: 30
+            });
             model = new THREE.Mesh(geometry, material);
             model.visible = false;
             scene.add(model);
@@ -121,37 +155,79 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
-        // Основной цикл
+        // Преобразование матрицы из AR в Three.js
+        function copyMarkerMatrix(modelViewMatrix, threeMatrix) {
+            const mat = modelViewMatrix;
+            threeMatrix.set(
+                mat[0], mat[1], mat[2], 0,
+                mat[3], mat[4], mat[5], 0,
+                mat[6], mat[7], mat[8], 0,
+                0, 0, 0, 1
+            );
+        }
+        
+        // Основной цикл рендеринга
         function animate() {
             requestAnimationFrame(animate);
-            
-            if (model.visible) {
-                model.rotation.x += 0.01;
-                model.rotation.y += 0.01;
-            }
-            
             renderer.render(scene, camera);
         }
         
-        // Обнаружение маркеров
+        // Обнаружение маркеров и обновление позиции
         function detectMarkers() {
-            if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+            if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) {
+                requestAnimationFrame(detectMarkers);
+                return;
+            }
             
-            // Создаем canvas для обработки
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = video.videoWidth;
-            tempCanvas.height = video.videoHeight;
-            const tempCtx = tempCanvas.getContext('2d');
+            // Обновляем размеры canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             
-            // Рисуем кадр
-            tempCtx.drawImage(video, 0, 0);
+            // Рисуем текущий кадр
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
-            // Здесь будет логика обнаружения маркеров
-            // Пока просто показываем модель в центре
-            model.visible = true;
-            model.position.set(0, 0, 0);
+            // Получаем данные изображения
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            setTimeout(detectMarkers, 100);
+            // Обнаруживаем маркеры
+            const markers = markerDetector.detect(imageData);
+            
+            if (markers.length > 0) {
+                const marker = markers[0];
+                
+                // Показываем модель
+                model.visible = true;
+                
+                // Точки модели (квадрат 100x100)
+                const modelPoints = [
+                    {x: -50, y: -50, z: 0},
+                    {x: 50, y: -50, z: 0},
+                    {x: 50, y: 50, z: 0},
+                    {x: -50, y: 50, z: 0}
+                ];
+                
+                // Точки изображения (углы маркера)
+                const imagePoints = marker.corners;
+                
+                // Вычисляем позицию
+                const pose = posit.pose(modelPoints, imagePoints);
+                
+                // Обновляем матрицу камеры Three.js
+                const modelViewMatrix = pose.bestRotation;
+                modelViewMatrix[2] = pose.bestTranslation[0] / 100;
+                modelViewMatrix[5] = pose.bestTranslation[1] / 100;
+                modelViewMatrix[8] = pose.bestTranslation[2] / 100;
+                
+                // Применяем трансформацию к модели
+                copyMarkerMatrix(modelViewMatrix, model.matrix);
+                model.matrix.decompose(model.position, model.quaternion, model.scale);
+                
+            } else {
+                // Скрываем модель, если маркер не найден
+                model.visible = false;
+            }
+            
+            requestAnimationFrame(detectMarkers);
         }
         
         // Запуск AR
@@ -159,20 +235,22 @@
             document.getElementById('startButton').style.display = 'none';
             
             await initCamera();
+            initAR();
             initThree();
             animate();
             detectMarkers();
             
-            // Показываем маркер для тестирования
+            // Показываем тестовый маркер
             const markerImg = document.createElement('img');
-            markerImg.src = generateArucoMarker(123);
+            markerImg.src = generateArucoMarker();
             markerImg.style.position = 'fixed';
-            markerImg.style.bottom = '20px';
+            markerImg.style.bottom = '80px';
             markerImg.style.left = '50%';
             markerImg.style.transform = 'translateX(-50%)';
             markerImg.style.width = '100px';
             markerImg.style.height = '100px';
             markerImg.style.zIndex = '1000';
+            markerImg.style.border = '2px solid white';
             document.body.appendChild(markerImg);
         }
         
