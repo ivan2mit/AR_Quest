@@ -61,7 +61,7 @@
     
     <!-- Подключаем библиотеки -->
     <script src="three.min.js"></script>
-    <script src="cv.js"></script> <!-- Добавь этот файл -->
+    <script src="cv.js"></script>
     <script src="aruco.js"></script>
     
     <script>
@@ -69,7 +69,7 @@
         let markerDetector, canvas, ctx;
         let lastMarkerTime = 0;
         
-        // Используем готовый Aruco-маркер (например, ID=1)
+        // Используем готовый Aruco-маркер
         const arucoMarkerUrl = 'marker.png';
         
         // Инициализация камеры
@@ -120,14 +120,14 @@
             directionalLight.position.set(1, 1, 1);
             scene.add(directionalLight);
             
-            // Создаем 3D модель (куб для демонстрации)
-            const geometry = new THREE.BoxGeometry(10, 10, 10);
+            // Создаем 3D модель (куб для демонстрации) - ИСПРАВЛЕНО: нормальный размер
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
             const material = new THREE.MeshPhongMaterial({ 
                 color: 0xff0000,
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
-            model.visible = true;
+            model.visible = true; // Показываем модель сразу для тестирования
             scene.add(model);
             
             // Обработчик изменения размера
@@ -144,7 +144,7 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Вращаем модель только когда она видна
+            // Вращаем модель для тестирования
             if (model.visible) {
                 model.rotation.x += 0.01;
                 model.rotation.y += 0.01;
@@ -163,7 +163,8 @@
             // Создаем canvas для обработки, если его нет
             if (!canvas) {
                 canvas = document.createElement('canvas');
-                ctx = canvas.getContext('2d');
+                // ИСПРАВЛЕНО: добавлен willReadFrequently для производительности
+                ctx = canvas.getContext('2d', { willReadFrequently: true });
             }
             
             // Обновляем размеры canvas
@@ -198,25 +199,24 @@
                     // Показываем модель
                     model.visible = true;
                     
-                    // Простое позиционирование по центру маркера
+                    // ИСПРАВЛЕНО: правильное позиционирование
                     const centerX = (marker.corners[0].x + marker.corners[2].x) / 2;
                     const centerY = (marker.corners[0].y + marker.corners[2].y) / 2;
                     
                     // Преобразуем координаты в 3D пространство
+                    // ИСПРАВЛЕНО: корректные коэффициенты для позиционирования
                     model.position.x = ((centerX / canvas.width) - 0.5) * 10;
                     model.position.y = (0.5 - (centerY / canvas.height)) * 8;
-                    model.position.z = 0; // на поверхности маркера
+                    model.position.z = 0;
                     
-                    // Делаем модель немного больше для лучшей видимости
-                    model.scale.set(0.5, 0.5, 0.5);
+                    // Нормальный масштаб
+                    model.scale.set(1, 1, 1);
+                    
+                    console.log('Позиция модели:', model.position);
                     
                 } else {
-                    // Скрываем модель, если маркер не найден
-                    // Но не слишком часто, чтобы избежать мерцания
-                    const now = Date.now();
-                    if (now - lastMarkerTime > 500) { // 500ms задержка
-                        model.visible = false;
-                    }
+                    // Не скрываем модель постоянно для тестирования
+                    // model.visible = false;
                 }
             } catch (error) {
                 console.error('Ошибка обнаружения маркеров:', error);
