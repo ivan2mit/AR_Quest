@@ -44,16 +44,17 @@
     <button id="startButton">Запустить AR</button>
     <div id="loading">Загрузка...</div>
 
-    <script src="https://libs.zappar.com/zappar-threejs/4.0.0/zappar-threejs.js"></script>
-    <script>
+    <script type="module">
+        import * as ZapparThree from 'https://cdn.jsdelivr.net/npm/@zappar/zappar-threejs@latest/dist/zappar-threejs.module.js';
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
+
         let soundPlayed = false;
-        let audioContext;
         let audioElement;
 
         // Инициализация аудио
         function initAudio() {
             try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 audioElement = new Audio('sound.mp3');
                 audioElement.preload = 'auto';
                 audioElement.load();
@@ -68,11 +69,6 @@
             
             try {
                 if (audioElement) {
-                    // Возобновляем AudioContext (нужно для iOS)
-                    if (audioContext.state === 'suspended') {
-                        audioContext.resume();
-                    }
-                    
                     audioElement.currentTime = 0;
                     audioElement.play().catch(e => {
                         console.warn('Ошибка воспроизведения:', e);
@@ -94,10 +90,10 @@
                 initAudio();
                 
                 // Создаем сцену Three.js
-                const scene = new window.ZAPPAR.THREE.Scene();
+                const scene = new THREE.Scene();
                 
                 // Создаем renderer
-                const renderer = new window.ZAPPAR.THREE.WebGLRenderer({ 
+                const renderer = new THREE.WebGLRenderer({ 
                     alpha: true,
                     antialias: true 
                 });
@@ -106,32 +102,31 @@
                 document.body.appendChild(renderer.domElement);
                 
                 // Создаем pipeline
-                const pipeline = new window.ZAPPAR.Pipeline();
+                const pipeline = new ZapparThree.Pipeline();
                 
                 // Создаем камеру
-                const camera = new window.ZAPPAR.THREE.Camera(pipeline);
+                const camera = new ZapparThree.Camera(pipeline);
                 scene.add(camera);
                 
                 // Создаем источник видео
-                const source = new window.ZAPPAR.SourceCamera();
+                const source = new ZapparThree.SourceCamera();
                 pipeline.source = source;
                 
                 // Запрашиваем доступ к камере
                 await source.start();
                 
                 // Создаем трекер изображений
-                const imageTracker = new window.ZAPPAR.THREE.ImageTracker(pipeline);
+                const imageTracker = new ZapparThree.ImageTracker(pipeline);
                 
-                // Загружаем маркер
-                // Пока используем тестовый маркер, замени на свой .zpt файл
+                // Загружаем тестовый маркер (пока)
                 await imageTracker.loadTarget('https://target-imgs.zappar.com/test-image.zpt');
                 
                 // Создаем anchor для маркера
-                const imageAnchor = new window.ZAPPAR.THREE.ImageAnchor(imageTracker);
+                const imageAnchor = new ZapparThree.ImageAnchor(imageTracker);
                 scene.add(imageAnchor);
                 
                 // Загружаем 3D модель
-                const loader = new window.ZAPPAR.THREE.GLTFLoader();
+                const loader = new GLTFLoader();
                 
                 loader.load('model.glb', (gltf) => {
                     document.getElementById('loading').style.display = 'none';
@@ -146,8 +141,9 @@
                     imageAnchor.add(model);
                     
                     // Воспроизводим анимации, если есть
+                    let mixer;
                     if (gltf.animations && gltf.animations.length > 0) {
-                        const mixer = new window.ZAPPAR.THREE.AnimationMixer(model);
+                        mixer = new THREE.AnimationMixer(model);
                         
                         gltf.animations.forEach((clip) => {
                             const action = mixer.clipAction(clip);
@@ -155,17 +151,17 @@
                         });
                         
                         // Обновляем анимации
-                        const clock = new window.ZAPPAR.THREE.Clock();
+                        const clock = new THREE.Clock();
                         const animate = () => {
                             requestAnimationFrame(animate);
                             const delta = clock.getDelta();
-                            mixer.update(delta);
+                            if (mixer) mixer.update(delta);
                         };
                         animate();
                     }
                     
                     // Воспроизводим звук при первой загрузке модели
-                    playSound();
+                    setTimeout(playSound, 500); // Небольшая задержка для уверенности
                     
                 }, undefined, (error) => {
                     console.error('Ошибка загрузки модели:', error);
@@ -173,10 +169,10 @@
                 });
                 
                 // Добавляем свет
-                const ambientLight = new window.ZAPPAR.THREE.AmbientLight(0xffffff, 0.6);
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
                 scene.add(ambientLight);
                 
-                const directionalLight = new window.ZAPPAR.THREE.DirectionalLight(0xffffff, 0.8);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
                 directionalLight.position.set(0, 1, 1);
                 scene.add(directionalLight);
                 
@@ -215,8 +211,6 @@
         // Обработчик кнопки запуска
         document.getElementById('startButton').addEventListener('click', startAR);
         
-        // Для тестирования - можно сразу запустить
-        // startAR();
     </script>
 </body>
 </html>
