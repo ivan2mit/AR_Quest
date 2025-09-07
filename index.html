@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Web AR with Zappar</title>
+    <title>AR с моделью и звуком</title>
     <style>
         body {
             margin: 0;
@@ -26,102 +26,190 @@
             font-size: 18px;
             cursor: pointer;
             z-index: 1000;
+            font-family: Arial, sans-serif;
         }
-        #zappar-overlay {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial, sans-serif;
             display: none;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <button id="startButton">Начать AR_experience</button>
-    <div id="zappar-overlay"></div>
+    <button id="startButton">Запустить AR</button>
+    <div id="loading">Загрузка...</div>
 
     <script src="https://libs.zappar.com/zappar-threejs/4.0.0/zappar-threejs.js"></script>
     <script>
-        // Основной код
+        let soundPlayed = false;
+        let audioContext;
+        let audioElement;
+
+        // Инициализация аудио
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                audioElement = new Audio('sound.mp3');
+                audioElement.preload = 'auto';
+                audioElement.load();
+            } catch (e) {
+                console.warn('Аудио не поддерживается:', e);
+            }
+        }
+
+        // Воспроизведение звука
+        function playSound() {
+            if (soundPlayed) return;
+            
+            try {
+                if (audioElement) {
+                    // Возобновляем AudioContext (нужно для iOS)
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                    
+                    audioElement.currentTime = 0;
+                    audioElement.play().catch(e => {
+                        console.warn('Ошибка воспроизведения:', e);
+                    });
+                    soundPlayed = true;
+                }
+            } catch (e) {
+                console.warn('Ошибка при воспроизведении звука:', e);
+            }
+        }
+
+        // Основной код AR
         async function startAR() {
             document.getElementById('startButton').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
             
-            // Создаем сцену Three.js
-            const scene = new window.ZAPPAR.THREE.Scene();
-            
-            // Создаем renderer
-            const renderer = new window.ZAPPAR.THREE.WebGLRenderer();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            
-            // Создаем pipeline
-            const pipeline = new window.ZAPPAR.Pipeline();
-            
-            // Создаем камеру
-            const camera = new window.ZAPPAR.THREE.Camera(pipeline);
-            scene.add(camera);
-            
-            // Создаем источник видео
-            const source = new window.ZAPPAR.SourceCamera();
-            pipeline.source = source;
-            
-            // Запрашиваем доступ к камере
             try {
-                await source.start();
-            } catch (e) {
-                alert('Ошибка доступа к камере: ' + e.message);
-                return;
-            }
-            
-            // Создаем трекер изображений
-            const imageTracker = new window.ZAPPAR.THREE.ImageTracker(pipeline);
-            
-            // Загружаем маркер (используем тестовый маркер Zappar)
-            // В реальном проекте замени на свой файл .zpt
-            await imageTracker.loadTarget('https://target-imgs.zappar.com/test-image.zpt');
-            
-            // Создаем anchor для маркера
-            const imageAnchor = new window.ZAPPAR.THREE.ImageAnchor(imageTracker);
-            scene.add(imageAnchor);
-            
-            // Добавляем простой куб для тестирования
-            const box = new window.ZAPPAR.THREE.Mesh(
-                new window.ZAPPAR.THREE.BoxGeometry(1, 1, 1),
-                new window.ZAPPAR.THREE.MeshBasicMaterial({ 
-                    color: 0x00ff00,
-                    transparent: true,
-                    opacity: 0.7 
-                })
-            );
-            box.position.set(0, 0, 0);
-            imageAnchor.add(box);
-            
-            // Добавляем свет
-            const light = new window.ZAPPAR.THREE.DirectionalLight(0xffffff, 1);
-            light.position.set(0, 0, 1);
-            scene.add(light);
-            
-            // Анимация
-            function animate() {
-                requestAnimationFrame(animate);
+                // Инициализация аудио
+                initAudio();
                 
-                // Обновляем pipeline
-                pipeline.frameUpdate();
+                // Создаем сцену Three.js
+                const scene = new window.ZAPPAR.THREE.Scene();
                 
-                // Рендерим сцену
-                renderer.render(scene, camera);
-            }
-            
-            animate();
-            
-            // Обработка изменения размера окна
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
+                // Создаем renderer
+                const renderer = new window.ZAPPAR.THREE.WebGLRenderer({ 
+                    alpha: true,
+                    antialias: true 
+                });
                 renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                document.body.appendChild(renderer.domElement);
+                
+                // Создаем pipeline
+                const pipeline = new window.ZAPPAR.Pipeline();
+                
+                // Создаем камеру
+                const camera = new window.ZAPPAR.THREE.Camera(pipeline);
+                scene.add(camera);
+                
+                // Создаем источник видео
+                const source = new window.ZAPPAR.SourceCamera();
+                pipeline.source = source;
+                
+                // Запрашиваем доступ к камере
+                await source.start();
+                
+                // Создаем трекер изображений
+                const imageTracker = new window.ZAPPAR.THREE.ImageTracker(pipeline);
+                
+                // Загружаем маркер
+                // Пока используем тестовый маркер, замени на свой .zpt файл
+                await imageTracker.loadTarget('https://target-imgs.zappar.com/test-image.zpt');
+                
+                // Создаем anchor для маркера
+                const imageAnchor = new window.ZAPPAR.THREE.ImageAnchor(imageTracker);
+                scene.add(imageAnchor);
+                
+                // Загружаем 3D модель
+                const loader = new window.ZAPPAR.THREE.GLTFLoader();
+                
+                loader.load('model.glb', (gltf) => {
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    const model = gltf.scene;
+                    
+                    // Масштабируем модель
+                    model.scale.set(0.5, 0.5, 0.5);
+                    model.position.set(0, 0, 0);
+                    
+                    // Добавляем модель на сцену
+                    imageAnchor.add(model);
+                    
+                    // Воспроизводим анимации, если есть
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        const mixer = new window.ZAPPAR.THREE.AnimationMixer(model);
+                        
+                        gltf.animations.forEach((clip) => {
+                            const action = mixer.clipAction(clip);
+                            action.play();
+                        });
+                        
+                        // Обновляем анимации
+                        const clock = new window.ZAPPAR.THREE.Clock();
+                        const animate = () => {
+                            requestAnimationFrame(animate);
+                            const delta = clock.getDelta();
+                            mixer.update(delta);
+                        };
+                        animate();
+                    }
+                    
+                    // Воспроизводим звук при первой загрузке модели
+                    playSound();
+                    
+                }, undefined, (error) => {
+                    console.error('Ошибка загрузки модели:', error);
+                    document.getElementById('loading').textContent = 'Ошибка загрузки модели';
+                });
+                
+                // Добавляем свет
+                const ambientLight = new window.ZAPPAR.THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight = new window.ZAPPAR.THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(0, 1, 1);
+                scene.add(directionalLight);
+                
+                // Анимация
+                function animate() {
+                    requestAnimationFrame(animate);
+                    
+                    // Обновляем pipeline
+                    pipeline.frameUpdate();
+                    
+                    // Рендерим сцену
+                    renderer.render(scene, camera);
+                }
+                
+                animate();
+                
+                // Обработка изменения размера окна
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+                
+                window.addEventListener('resize', onWindowResize);
+                
+                // Обработка касания для воспроизведения звука (для iOS)
+                document.body.addEventListener('touchstart', playSound, { once: true });
+                document.body.addEventListener('click', playSound, { once: true });
+                
+            } catch (error) {
+                console.error('Ошибка запуска AR:', error);
+                document.getElementById('loading').textContent = 'Ошибка: ' + error.message;
+            }
         }
         
         // Обработчик кнопки запуска
