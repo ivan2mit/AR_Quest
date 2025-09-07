@@ -45,7 +45,8 @@
     <div id="loading">Загрузка...</div>
 
     <script type="module">
-        import * as ZapparThree from 'https://cdn.jsdelivr.net/npm/@zappar/zappar-threejs@latest/dist/zappar-threejs.module.js';
+        // Импортируем правильные версии библиотек
+        import * as ZapparThree from 'https://cdn.jsdelivr.net/npm/@zappar/zappar-threejs@5.0.0/dist/zappar-threejs.module.js';
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.module.js';
         import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
 
@@ -118,7 +119,7 @@
                 // Создаем трекер изображений
                 const imageTracker = new ZapparThree.ImageTracker(pipeline);
                 
-                // Загружаем тестовый маркер (пока)
+                // Загружаем тестовый маркер
                 await imageTracker.loadTarget('https://target-imgs.zappar.com/test-image.zpt');
                 
                 // Создаем anchor для маркера
@@ -161,7 +162,7 @@
                     }
                     
                     // Воспроизводим звук при первой загрузке модели
-                    setTimeout(playSound, 500); // Небольшая задержка для уверенности
+                    setTimeout(playSound, 500);
                     
                 }, undefined, (error) => {
                     console.error('Ошибка загрузки модели:', error);
@@ -198,7 +199,7 @@
                 
                 window.addEventListener('resize', onWindowResize);
                 
-                // Обработка касания для воспроизведения звука (для iOS)
+                // Обработка касания для воспроизведения звука
                 document.body.addEventListener('touchstart', playSound, { once: true });
                 document.body.addEventListener('click', playSound, { once: true });
                 
