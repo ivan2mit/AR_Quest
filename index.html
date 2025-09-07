@@ -1,18 +1,183 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <meta charset="utf-8" />
-
-    <!-- USE A MOBILE APPROPRIATE VIEWPORT SETTING SO THE UI APPEARS THE RIGHT SIZE -->
-    <meta name="viewport" content="width=device-width,user-scalable=no,minimal-ui" />
-
-    <title>Zappar for ThreeJS</title>
-<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></script><script src='https://libs.zappar.com/zappar-threejs/2.0.6/zappar-threejs.js'></script><link rel='stylesheet' type='text/css' href='style.css'>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простой AR с Aruco</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #000;
+        }
+        #startButton {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        canvas { 
+            display: block; 
+        }
+    </style>
 </head>
-
 <body>
-<script type="module" src="index.js"></script>
-
+    <button id="startButton">Запустить AR</button>
+    
+    <script src="three.min.js"></script>
+    <script src="aruco.js"></script>
+    
+    <script>
+        let video, canvas, ctx, scene, camera, renderer, model;
+        let detector, markers = {};
+        
+        // Генерация Aruco-маркера 5x5
+        function generateArucoMarker(id) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            
+            // Простой паттерн для демонстрации
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 200, 200);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(20, 20, 160, 160);
+            
+            // Бинарный паттерн
+            const pattern = id.toString(2).padStart(25, '0');
+            let index = 0;
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    ctx.fillStyle = pattern[index] === '1' ? '#000' : '#fff';
+                    ctx.fillRect(40 + x*24, 40 + y*24, 20, 20);
+                    index++;
+                }
+            }
+            
+            return canvas.toDataURL();
+        }
+        
+        // Инициализация камеры
+        async function initCamera() {
+            video = document.createElement('video');
+            video.style.display = 'none';
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+                await video.play();
+            } catch (err) {
+                alert('Ошибка доступа к камере: ' + err.message);
+            }
+        }
+        
+        // Инициализация Three.js
+        function initThree() {
+            // Создаем сцену
+            scene = new THREE.Scene();
+            
+            // Создаем камеру
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Создаем рендерер
+            renderer = new THREE.WebGLRenderer({ alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            
+            // Добавляем свет
+            const light = new THREE.AmbientLight(0xffffff, 1);
+            scene.add(light);
+            
+            // Создаем простой куб вместо модели
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            model = new THREE.Mesh(geometry, material);
+            model.visible = false;
+            scene.add(model);
+            
+            // Обработчик изменения размера
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Основной цикл
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (model.visible) {
+                model.rotation.x += 0.01;
+                model.rotation.y += 0.01;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Обнаружение маркеров
+        function detectMarkers() {
+            if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) return;
+            
+            // Создаем canvas для обработки
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Рисуем кадр
+            tempCtx.drawImage(video, 0, 0);
+            
+            // Здесь будет логика обнаружения маркеров
+            // Пока просто показываем модель в центре
+            model.visible = true;
+            model.position.set(0, 0, 0);
+            
+            setTimeout(detectMarkers, 100);
+        }
+        
+        // Запуск AR
+        async function startAR() {
+            document.getElementById('startButton').style.display = 'none';
+            
+            await initCamera();
+            initThree();
+            animate();
+            detectMarkers();
+            
+            // Показываем маркер для тестирования
+            const markerImg = document.createElement('img');
+            markerImg.src = generateArucoMarker(123);
+            markerImg.style.position = 'fixed';
+            markerImg.style.bottom = '20px';
+            markerImg.style.left = '50%';
+            markerImg.style.transform = 'translateX(-50%)';
+            markerImg.style.width = '100px';
+            markerImg.style.height = '100px';
+            markerImg.style.zIndex = '1000';
+            document.body.appendChild(markerImg);
+        }
+        
+        // Обработчик кнопки
+        document.getElementById('startButton').addEventListener('click', startAR);
+    </script>
 </body>
 </html>
