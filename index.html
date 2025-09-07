@@ -121,13 +121,13 @@
             scene.add(directionalLight);
             
             // Создаем 3D модель (куб для демонстрации)
-            const geometry = new THREE.BoxGeometry(100, 100, 100);
+            const geometry = new THREE.BoxGeometry(10, 10, 10);
             const material = new THREE.MeshPhongMaterial({ 
                 color: 0xff0000,
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
-            model.visible = false;
+            model.visible = true;
             scene.add(model);
             
             // Обработчик изменения размера
