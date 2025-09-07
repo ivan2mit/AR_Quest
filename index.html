@@ -55,7 +55,7 @@
     <button id="startButton">Запустить AR</button>
     <div id="markerHint">
         Покажите камеру на Aruco-маркер<br>
-        <small>Тестовый маркер будет показан после запуска</small>
+        <small>Маркер будет показан после запуска</small>
     </div>
     <div id="videoContainer"></div>
     
@@ -68,47 +68,8 @@
         let markerDetector, canvas, ctx;
         let lastMarkerTime = 0;
         
-        // Генерация правильного Aruco-маркера 7x7
-        function generateArucoMarker() {
-            const markerCanvas = document.createElement('canvas');
-            markerCanvas.width = 200;
-            markerCanvas.height = 200;
-            const markerCtx = markerCanvas.getContext('2d');
-            
-            // Белый фон
-            markerCtx.fillStyle = '#fff';
-            markerCtx.fillRect(0, 0, 200, 200);
-            
-            // Черная рамка (3 клетки с каждой стороны)
-            markerCtx.fillStyle = '#000';
-            
-            // Верхняя и нижняя рамка
-            for(let i = 0; i < 7; i++) {
-                markerCtx.fillRect(20 + i*23, 20, 23, 23);      // верх
-                markerCtx.fillRect(20 + i*23, 161, 23, 23);    // низ
-            }
-            
-            // Левая и правая рамка (без углов, они уже заполнены)
-            for(let i = 1; i < 6; i++) {
-                markerCtx.fillRect(20, 20 + i*23, 23, 23);     // лево
-                markerCtx.fillRect(161, 20 + i*23, 23, 23);    // право
-            }
-            
-            // Центральный паттерн (5x5)
-            // Простой бинарный паттерн для ID=42
-            const pattern = "101010"; // упрощенный паттерн
-            let index = 0;
-            for(let y = 1; y < 6; y++) {
-                for(let x = 1; x < 6; x++) {
-                    if (pattern[index % pattern.length] === '1') {
-                        markerCtx.fillRect(20 + x*23, 20 + y*23, 23, 23);
-                    }
-                    index++;
-                }
-            }
-            
-            return markerCanvas.toDataURL();
-        }
+        // Используем готовый Aruco-маркер (например, ID=1)
+        const arucoMarkerUrl = 'https://raw.githubusercontent.com/jcmellado/js-aruco/master/examples/aruco_marker_1.png';
         
         // Инициализация камеры
         async function initCamera() {
@@ -161,7 +122,7 @@
             // Создаем 3D модель (куб для демонстрации)
             const geometry = new THREE.BoxGeometry(1, 1, 1);
             const material = new THREE.MeshPhongMaterial({ 
-                color: 0xff0000, // красный куб для лучшей видимости
+                color: 0xff0000,
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
@@ -277,7 +238,7 @@
             
             // Показываем тестовый маркер
             const markerImg = document.createElement('img');
-            markerImg.src = generateArucoMarker();
+            markerImg.src = arucoMarkerUrl;
             markerImg.style.position = 'fixed';
             markerImg.style.bottom = '80px';
             markerImg.style.left = '50%';
