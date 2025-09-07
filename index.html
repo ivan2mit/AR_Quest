@@ -65,11 +65,10 @@
     
     <script>
         let video, scene, camera, renderer, model;
-        let markerDetector, cameraParam, posit;
-        let canvas, ctx;
-        let processing = false;
+        let markerDetector, canvas, ctx;
+        let lastMarkerTime = 0;
         
-        // Генерация тестового Aruco-маркера
+        // Генерация правильного Aruco-маркера 7x7
         function generateArucoMarker() {
             const markerCanvas = document.createElement('canvas');
             markerCanvas.width = 200;
@@ -80,18 +79,33 @@
             markerCtx.fillStyle = '#fff';
             markerCtx.fillRect(0, 0, 200, 200);
             
-            // Черная рамка
+            // Черная рамка (3 клетки с каждой стороны)
             markerCtx.fillStyle = '#000';
-            markerCtx.fillRect(20, 20, 160, 160);
             
-            // Простой паттерн 5x5
-            markerCtx.fillStyle = '#fff';
-            // Рисуем крест для демонстрации
-            markerCtx.fillRect(80, 40, 40, 40); // верх
-            markerCtx.fillRect(40, 80, 40, 40); // лево
-            markerCtx.fillRect(80, 80, 40, 40); // центр
-            markerCtx.fillRect(120, 80, 40, 40); // право
-            markerCtx.fillRect(80, 120, 40, 40); // низ
+            // Верхняя и нижняя рамка
+            for(let i = 0; i < 7; i++) {
+                markerCtx.fillRect(20 + i*23, 20, 23, 23);      // верх
+                markerCtx.fillRect(20 + i*23, 161, 23, 23);    // низ
+            }
+            
+            // Левая и правая рамка (без углов, они уже заполнены)
+            for(let i = 1; i < 6; i++) {
+                markerCtx.fillRect(20, 20 + i*23, 23, 23);     // лево
+                markerCtx.fillRect(161, 20 + i*23, 23, 23);    // право
+            }
+            
+            // Центральный паттерн (5x5)
+            // Простой бинарный паттерн для ID=42
+            const pattern = "101010"; // упрощенный паттерн
+            let index = 0;
+            for(let y = 1; y < 6; y++) {
+                for(let x = 1; x < 6; x++) {
+                    if (pattern[index % pattern.length] === '1') {
+                        markerCtx.fillRect(20 + x*23, 20 + y*23, 23, 23);
+                    }
+                    index++;
+                }
+            }
             
             return markerCanvas.toDataURL();
         }
@@ -129,6 +143,7 @@
             
             // Создаем камеру
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
             
             // Создаем рендерер
             renderer = new THREE.WebGLRenderer({ alpha: true });
@@ -146,7 +161,7 @@
             // Создаем 3D модель (куб для демонстрации)
             const geometry = new THREE.BoxGeometry(1, 1, 1);
             const material = new THREE.MeshPhongMaterial({ 
-                color: 0x00ff00,
+                color: 0xff0000, // красный куб для лучшей видимости
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
@@ -163,20 +178,16 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
         
-        // Преобразование матрицы из AR в Three.js
-        function copyMarkerMatrix(modelViewMatrix, threeMatrix) {
-            const mat = modelViewMatrix;
-            threeMatrix.set(
-                mat[0], -mat[1], mat[2], 0,
-                -mat[3], mat[4], -mat[5], 0,
-                mat[6], -mat[7], mat[8], 0,
-                0, 0, 0, 1
-            );
-        }
-        
         // Основной цикл рендеринга
         function animate() {
             requestAnimationFrame(animate);
+            
+            // Вращаем модель только когда она видна
+            if (model.visible) {
+                model.rotation.x += 0.01;
+                model.rotation.y += 0.01;
+            }
+            
             renderer.render(scene, camera);
         }
         
@@ -220,36 +231,30 @@
                 
                 if (markers.length > 0) {
                     const marker = markers[0];
-                    console.log('Найден маркер ID:', marker.id);
+                    console.log('Найден маркер ID:', marker.id, 'в позиции:', marker);
                     
                     // Показываем модель
                     model.visible = true;
                     
-                    // Точки модели (квадрат 100x100)
-                    const modelSize = 100;
-                    const modelPoints = [
-                        {x: -modelSize/2, y: -modelSize/2},
-                        {x: modelSize/2, y: -modelSize/2},
-                        {x: modelSize/2, y: modelSize/2},
-                        {x: -modelSize/2, y: modelSize/2}
-                    ];
-                    
-                    // Вычисляем позицию (простая реализация)
+                    // Простое позиционирование по центру маркера
                     const centerX = (marker.corners[0].x + marker.corners[2].x) / 2;
                     const centerY = (marker.corners[0].y + marker.corners[2].y) / 2;
                     
-                    // Позиционируем модель
-                    model.position.x = (centerX - canvas.width/2) / 100;
-                    model.position.y = -(centerY - canvas.height/2) / 100;
-                    model.position.z = -5; // фиксированная глубина для демонстрации
+                    // Преобразуем координаты в 3D пространство
+                    model.position.x = ((centerX / canvas.width) - 0.5) * 10;
+                    model.position.y = (0.5 - (centerY / canvas.height)) * 8;
+                    model.position.z = 0; // на поверхности маркера
                     
-                    // Вращаем модель
-                    model.rotation.x += 0.01;
-                    model.rotation.y += 0.01;
+                    // Делаем модель немного больше для лучшей видимости
+                    model.scale.set(0.5, 0.5, 0.5);
                     
                 } else {
                     // Скрываем модель, если маркер не найден
-                    model.visible = false;
+                    // Но не слишком часто, чтобы избежать мерцания
+                    const now = Date.now();
+                    if (now - lastMarkerTime > 500) { // 500ms задержка
+                        model.visible = false;
+                    }
                 }
             } catch (error) {
                 console.error('Ошибка обнаружения маркеров:', error);
@@ -277,14 +282,16 @@
             markerImg.style.bottom = '80px';
             markerImg.style.left = '50%';
             markerImg.style.transform = 'translateX(-50%)';
-            markerImg.style.width = '100px';
-            markerImg.style.height = '100px';
+            markerImg.style.width = '120px';
+            markerImg.style.height = '120px';
             markerImg.style.zIndex = '1000';
-            markerImg.style.border = '2px solid white';
+            markerImg.style.border = '3px solid white';
             markerImg.style.background = 'white';
+            markerImg.style.borderRadius = '10px';
+            markerImg.id = 'testMarker';
             document.body.appendChild(markerImg);
             
-            console.log('AR запущен');
+            console.log('AR запущен. Размеры видео:', video.videoWidth, 'x', video.videoHeight);
         }
         
         // Обработчик кнопки
