@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport"="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR с Aruco-маркерами</title>
     <style>
         body { 
@@ -45,14 +45,14 @@
             width: 100%;
             height: 100%;
             display: none;
-            z-index: 1; /* Видео позади */
+            z-index: 1;
         }
         canvas { 
             display: block; 
             position: fixed;
             top: 0;
             left: 0;
-            z-index: 2; /* Three.js поверх видео */
+            z-index: 2;
         }
     </style>
 </head>
@@ -72,9 +72,10 @@
     <script>
         let video, scene, camera, renderer, model;
         let markerDetector, canvas, ctx;
-        let lastMarkerTime = 0;
+        let modelLoaded = false;
         
-        // Используем готовый Aruco-маркер
+        // Путь к твоей 3D модели
+        const modelPath = 'model.glb'; // Замени на путь к твоей модели
         const arucoMarkerUrl = 'marker.png';
         
         // Инициализация камеры
@@ -103,6 +104,72 @@
             }
         }
         
+        // Загрузка 3D модели
+        function loadModel() {
+            // Создаем загрузчик
+            const loader = new THREE.GLTFLoader();
+            
+            loader.load(modelPath, (gltf) => {
+                // Удаляем предыдущую модель, если есть
+                if (model) {
+                    scene.remove(model);
+                }
+                
+                // Получаем модель из загруженного файла
+                model = gltf.scene;
+                
+                // Настраиваем размер модели
+                model.scale.set(1, 1, 1);
+                
+                // Добавляем модель в сцену
+                scene.add(model);
+                modelLoaded = true;
+                
+                console.log('Модель загружена');
+                
+                // Если есть анимации, запускаем их
+                if (gltf.animations && gltf.animations.length > 0) {
+                    const mixer = new THREE.AnimationMixer(model);
+                    gltf.animations.forEach((clip) => {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    });
+                    
+                    // Обновляем анимации
+                    const clock = new THREE.Clock();
+                    function animateModel() {
+                        requestAnimationFrame(animateModel);
+                        const delta = clock.getDelta();
+                        mixer.update(delta);
+                    }
+                    animateModel();
+                }
+                
+            }, undefined, (error) => {
+                console.error('Ошибка загрузки модели:', error);
+                // Если модель не загрузилась, создаем куб как запасной вариант
+                createDefaultCube();
+            });
+        }
+        
+        // Создание куба как запасного варианта
+        function createDefaultCube() {
+            if (model) {
+                scene.remove(model);
+            }
+            
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0xff0000,
+                shininess: 30
+            });
+            model = new THREE.Mesh(geometry, material);
+            scene.add(model);
+            modelLoaded = true;
+            
+            console.log('Создан запасной куб');
+        }
+        
         // Инициализация Three.js
         function initThree() {
             // Создаем сцену
@@ -118,7 +185,7 @@
             renderer.domElement.style.position = 'fixed';
             renderer.domElement.style.top = '0';
             renderer.domElement.style.left = '0';
-            renderer.domElement.style.zIndex = '2'; // Поверх видео
+            renderer.domElement.style.zIndex = '2';
             document.body.appendChild(renderer.domElement);
             
             // Добавляем свет
@@ -129,15 +196,13 @@
             directionalLight.position.set(1, 1, 1);
             scene.add(directionalLight);
             
-            // Создаем 3D модель (куб для демонстрации)
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshPhongMaterial({ 
-                color: 0xff0000,
-                shininess: 30
-            });
-            model = new THREE.Mesh(geometry, material);
-            model.visible = true; // Показываем модель сразу для тестирования
-            scene.add(model);
+            // Загружаем модель
+            loadModel();
+            
+            // Скрываем модель до обнаружения маркера
+            if (model) {
+                model.visible = false;
+            }
             
             // Обработчик изменения размера
             window.addEventListener('resize', onWindowResize);
@@ -153,10 +218,11 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Вращаем модель для тестирования
-            if (model.visible) {
-                model.rotation.x += 0.01;
-                model.rotation.y += 0.01;
+            // Вращаем модель только когда она видна (для тестирования)
+            if (model && model.visible) {
+                // Убираем автоматическое вращение для реального AR
+                // model.rotation.x += 0.01;
+                // model.rotation.y += 0.01;
             }
             
             renderer.render(scene, camera);
@@ -172,7 +238,6 @@
             // Создаем canvas для обработки, если его нет
             if (!canvas) {
                 canvas = document.createElement('canvas');
-                // Добавлен willReadFrequently для производительности
                 ctx = canvas.getContext('2d', { willReadFrequently: true });
             }
             
@@ -201,9 +266,9 @@
                 // Обнаруживаем маркеры
                 const markers = markerDetector.detect(imageData);
                 
-                if (markers.length > 0) {
+                if (markers.length > 0 && model) {
                     const marker = markers[0];
-                    console.log('Найден маркер ID:', marker.id, 'в позиции:', marker);
+                    console.log('Найден маркер ID:', marker.id);
                     
                     // Показываем модель
                     model.visible = true;
@@ -220,11 +285,12 @@
                     // Нормальный масштаб
                     model.scale.set(1, 1, 1);
                     
-                    console.log('Позиция модели:', model.position);
+                    console.log('Модель позиционирована:', model.position);
                     
-                } else {
-                    // Не скрываем модель постоянно для тестирования
-                    // model.visible = false;
+                } else if (model) {
+                    // Скрываем модель, если маркер не найден
+                    model.visible = false;
+                    console.log('Маркер не найден, модель скрыта');
                 }
             } catch (error) {
                 console.error('Ошибка обнаружения маркеров:', error);
