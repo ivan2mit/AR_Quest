@@ -5,33 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR с QR-кодами</title>
     <style>
-    /* Добавляем стиль для ползунка */
-    #sizeSlider {
-        position: fixed;
-        bottom: 150px; /* Выше тестового QR-кода */
-        left: 50%;
-        transform: translateX(-50%);
-        width: 80%;
-        max-width: 300px;
-        z-index: 1000;
-        background: rgba(255, 255, 255, 0.2);
-        padding: 10px;
-        border-radius: 10px;
-    }
-    
-    #sizeSlider input {
-        width: 100%;
-    }
-    
-    #sizeSlider label {
-        color: white;
-        font-family: Arial, sans-serif;
-        display: block;
-        text-align: center;
-        margin-bottom: 5px;
-    }
-    </style>
-    <style>
         body { 
             margin: 0; 
             overflow: hidden; 
@@ -81,6 +54,31 @@
             left: 0;
             z-index: 2;
         }
+        /* Добавляем стиль для ползунка */
+        #sizeSlider {
+            position: fixed;
+            bottom: 150px; /* Выше тестового QR-кода */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 300px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        #sizeSlider input {
+            width: 100%;
+        }
+
+        #sizeSlider label {
+            color: white;
+            font-family: Arial, sans-serif;
+            display: block;
+            text-align: center;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -90,6 +88,12 @@
         <small>QR-код будет показан после запуска</small>
     </div>
     <div id="videoContainer"></div>
+    
+    <!-- Добавляем ползунок -->
+    <div id="sizeSlider">
+        <label for="modelSize">Размер модели</label>
+        <input type="range" id="modelSize" min="0.1" max="3" step="0.1" value="1">
+    </div>
     
     <!-- Подключаем библиотеки -->
     <script src="three.min.js"></script>
@@ -234,6 +238,16 @@
                 model.visible = false;
             }
             
+            // Добавляем обработчик ползунка
+            const sizeSlider = document.getElementById('modelSize');
+            sizeSlider.addEventListener('input', function() {
+                if (model) {
+                    const scale = parseFloat(this.value);
+                    model.scale.set(scale, scale, scale);
+                    console.log('Размер модели:', scale);
+                }
+            });
+            
             // Обработчик изменения размера
             window.addEventListener('resize', onWindowResize);
         }
@@ -250,8 +264,8 @@
             
             // Вращаем модель только когда она видна
             if (model && model.visible) {
-                model.rotation.z += 0.01;
-                //model.rotation.y += 0.01;
+                model.rotation.x += 0.01;
+                model.rotation.y += 0.01;
             }
             
             renderer.render(scene, camera);
@@ -297,34 +311,29 @@
                     // Показываем модель
                     model.visible = true;
                     
-                    // Позиционируем модель по центру QR-кода
-                    // const centerX = qrCode.location.topLeftCorner.x + 
-                    //                (qrCode.location.topRightCorner.x - qrCode.location.topLeftCorner.x) / 2;
-                    // const centerY = qrCode.location.topLeftCorner.y + 
-                    //                (qrCode.location.bottomLeftCorner.y - qrCode.location.topLeftCorner.y) / 2;
-
+                    // Позиционируем модель по центру QR-кода (исправлено)
                     const centerX = (
-                                        qrCode.location.topLeftCorner.x +
-                                        qrCode.location.topRightCorner.x +
-                                        qrCode.location.bottomLeftCorner.x +
-                                        qrCode.location.bottomRightCorner.x
-                                    ) / 4;
-                                    
-                    const centerY = (
-                                        qrCode.location.topLeftCorner.y +
-                                        qrCode.location.topRightCorner.y +
-                                        qrCode.location.bottomLeftCorner.y +
-                                        qrCode.location.bottomRightCorner.y
-                                    ) / 4;
+                        qrCode.location.topLeftCorner.x +
+                        qrCode.location.topRightCorner.x +
+                        qrCode.location.bottomLeftCorner.x +
+                        qrCode.location.bottomRightCorner.x
+                    ) / 4;
 
+                    const centerY = (
+                        qrCode.location.topLeftCorner.y +
+                        qrCode.location.topRightCorner.y +
+                        qrCode.location.bottomLeftCorner.y +
+                        qrCode.location.bottomRightCorner.y
+                    ) / 4;
                     
                     // Преобразуем координаты в 3D пространство
                     model.position.x = ((centerX / canvas.width) - 0.5) * 10;
                     model.position.y = (0.5 - (centerY / canvas.height)) * 8;
                     model.position.z = 0;
                     
-                    // Нормальный масштаб (QR-коды обычно больше)
-                    model.scale.set(1.5, 1.5, 1.5);
+                    // Применяем масштаб из ползунка
+                    const scale = parseFloat(document.getElementById('modelSize').value);
+                    model.scale.set(scale, scale, scale);
                     
                     console.log('Модель позиционирована:', model.position);
                     
@@ -371,7 +380,6 @@
             
             console.log('AR с QR запущен. Размеры видео:', video.videoWidth, 'x', video.videoHeight);
         }
-        
         
         // Обработчик кнопки
         document.getElementById('startButton').addEventListener('click', startAR);
