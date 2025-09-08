@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR с QR-кодами</title>
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
+        body {
+            margin: 0;
+            overflow: hidden;
             background: #000;
         }
         #startButton {
@@ -47,37 +47,50 @@
             display: none;
             z-index: 1;
         }
-        canvas { 
-            display: block; 
+        canvas {
+            display: block;
             position: fixed;
             top: 0;
             left: 0;
-            z-index: 2;
+            z-index: 2; /* Three.js рендерер поверх видео */
         }
-        /* Добавляем стиль для ползунка */
-        #sizeSlider {
+        /* Стили для панели управления масштабом */
+        #scaleControls {
             position: fixed;
             bottom: 150px; /* Выше тестового QR-кода */
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
-            max-width: 300px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 10px;
+            max-width: 350px;
+            z-index: 1001; /* Передний план */
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
             border-radius: 10px;
-        }
-
-        #sizeSlider input {
-            width: 100%;
-        }
-
-        #sizeSlider label {
             color: white;
             font-family: Arial, sans-serif;
+        }
+
+        #scaleControls label {
             display: block;
-            text-align: center;
-            margin-bottom: 5px;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        #scaleControls input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        #scaleControls input[type="number"] {
+            width: 70px;
+            padding: 3px;
+            margin-right: 10px;
+        }
+
+        #scaleValueDisplay {
+            display: inline-block;
+            width: 40px;
+            text-align: right;
         }
     </style>
 </head>
@@ -88,44 +101,60 @@
         <small>QR-код будет показан после запуска</small>
     </div>
     <div id="videoContainer"></div>
-    
-    <!-- Добавляем ползунок -->
-    <div id="sizeSlider">
-        <label for="modelSize">Размер модели</label>
+
+    <!-- Панель управления масштабом -->
+    <div id="scaleControls">
+        <label for="modelSize">Масштаб модели: <span id="scaleValueDisplay">1.0</span></label>
         <input type="range" id="modelSize" min="0.1" max="3" step="0.1" value="1">
+
+        <label>
+            Мин. масштаб:
+            <input type="number" id="minScale" value="0.1" min="0.01" step="0.1" style="width: 60px;">
+        </label>
+        <label>
+            Макс. масштаб:
+            <input type="number" id="maxScale" value="3" min="0.1" step="0.1" style="width: 60px;">
+        </label>
     </div>
-    
+
     <!-- Подключаем библиотеки -->
     <script src="three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-    <script src="cv.js"></script>
-    <script src="aruco.js"></script>
-    
+    <!-- cv.js и aruco.js не используются в текущей версии, но оставлены на случай переключения -->
+    <!-- <script src="cv.js"></script> -->
+    <!-- <script src="aruco.js"></script> -->
+
     <script>
         let video, scene, camera, renderer, model;
-        let canvas, ctx;
+        let canvas, ctx; // canvas и ctx для обработки видео
         let modelLoaded = false;
         let qrCodeData = null;
-        
+
         // Путь к твоей 3D модели
         const modelPath = 'model.glb'; // Замени на путь к твоей модели
         const qrCodeUrl = 'qrcode.png'; // Путь к тестовому QR-коду
-        
+
+        // Элементы управления масштабом
+        const modelSizeSlider = document.getElementById('modelSize');
+        const minScaleInput = document.getElementById('minScale');
+        const maxScaleInput = document.getElementById('maxScale');
+        const scaleValueDisplay = document.getElementById('scaleValueDisplay');
+
         // Инициализация камеры
         async function initCamera() {
             video = document.createElement('video');
             video.style.width = '100%';
             video.style.height = '100%';
             video.style.objectFit = 'cover';
-            
+
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
                         facingMode: 'environment',
                         width: { ideal: 1280 }, // Высокое разрешение для QR
                         height: { ideal: 720 }
-                    } 
+                    }
                 });
                 video.srcObject = stream;
                 document.getElementById('videoContainer').appendChild(video);
@@ -137,30 +166,30 @@
                 return false;
             }
         }
-        
+
         // Загрузка 3D модели
         function loadModel() {
             // Создаем загрузчик
             const loader = new THREE.GLTFLoader();
-            
+
             loader.load(modelPath, (gltf) => {
                 // Удаляем предыдущую модель, если есть
                 if (model) {
                     scene.remove(model);
                 }
-                
+
                 // Получаем модель из загруженного файла
                 model = gltf.scene;
-                
+
                 // Настраиваем размер модели
                 model.scale.set(1, 1, 1);
-                
+
                 // Добавляем модель в сцену
                 scene.add(model);
                 modelLoaded = true;
-                
+
                 console.log('Модель загружена');
-                
+
                 // Если есть анимации, запускаем их
                 if (gltf.animations && gltf.animations.length > 0) {
                     const mixer = new THREE.AnimationMixer(model);
@@ -168,7 +197,7 @@
                         const action = mixer.clipAction(clip);
                         action.play();
                     });
-                    
+
                     // Обновляем анимации
                     const clock = new THREE.Clock();
                     function animateModel() {
@@ -178,139 +207,171 @@
                     }
                     animateModel();
                 }
-                
+
             }, undefined, (error) => {
                 console.error('Ошибка загрузки модели:', error);
                 // Если модель не загрузилась, создаем куб как запасной вариант
                 createDefaultCube();
             });
         }
-        
+
         // Создание куба как запасного варианта
         function createDefaultCube() {
             if (model) {
                 scene.remove(model);
             }
-            
+
             const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshPhongMaterial({ 
+            const material = new THREE.MeshPhongMaterial({
                 color: 0x00ff00, // Зеленый куб для QR
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
             scene.add(model);
             modelLoaded = true;
-            
+
             console.log('Создан запасной куб');
         }
-        
+
         // Инициализация Three.js
         function initThree() {
             // Создаем сцену
             scene = new THREE.Scene();
-            
+
             // Создаем камеру
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 5;
-            
+
             // Создаем рендерер
             renderer = new THREE.WebGLRenderer({ alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.domElement.style.position = 'fixed';
             renderer.domElement.style.top = '0';
             renderer.domElement.style.left = '0';
-            renderer.domElement.style.zIndex = '2';
+            renderer.domElement.style.zIndex = '2'; // Поверх видео
             document.body.appendChild(renderer.domElement);
-            
+
             // Добавляем свет
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
-            
+
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(1, 1, 1);
             scene.add(directionalLight);
-            
+
             // Загружаем модель
             loadModel();
-            
+
             // Скрываем модель до обнаружения QR-кода
             if (model) {
                 model.visible = false;
             }
-            
-            // Добавляем обработчик ползунка
-            const sizeSlider = document.getElementById('modelSize');
-            sizeSlider.addEventListener('input', function() {
-                if (model) {
-                    const scale = parseFloat(this.value);
+
+            // --- Обработчики для управления масштабом ---
+            // Обработчик изменения ползунка
+            modelSizeSlider.addEventListener('input', function() {
+                const scale = parseFloat(this.value);
+                scaleValueDisplay.textContent = scale.toFixed(1);
+                if (model && model.visible) {
                     model.scale.set(scale, scale, scale);
-                    console.log('Размер модели:', scale);
                 }
             });
-            
-            // Обработчик изменения размера
+
+            // Обработчики изменения границ масштаба
+            function updateSliderRange() {
+                let min = parseFloat(minScaleInput.value) || 0.1;
+                let max = parseFloat(maxScaleInput.value) || 3.0;
+
+                // Убедимся, что min <= max
+                if (min > max) {
+                    min = max;
+                    minScaleInput.value = min;
+                }
+
+                modelSizeSlider.min = min;
+                modelSizeSlider.max = max;
+
+                // Проверим, не вышел ли текущий value за новые границы
+                let current = parseFloat(modelSizeSlider.value);
+                if (current < min) {
+                    modelSizeSlider.value = min;
+                    scaleValueDisplay.textContent = min.toFixed(1);
+                } else if (current > max) {
+                    modelSizeSlider.value = max;
+                    scaleValueDisplay.textContent = max.toFixed(1);
+                } else {
+                    scaleValueDisplay.textContent = current.toFixed(1);
+                }
+            }
+
+            minScaleInput.addEventListener('change', updateSliderRange);
+            maxScaleInput.addEventListener('change', updateSliderRange);
+            // --- Конец обработчиков масштаба ---
+
+            // Обработчик изменения размера окна
             window.addEventListener('resize', onWindowResize);
         }
-        
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
-        // Основной цикл рендеринга
+
+        // Основной цикл рендеринга Three.js
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Вращаем модель только когда она видна
-            if (model && model.visible) {
-                model.rotation.x += 0.01;
-                model.rotation.y += 0.01;
-            }
-            
+
+            // Вращаем модель только когда она видна (по желанию, можно убрать)
+            // if (model && model.visible) {
+            //     model.rotation.x += 0.01;
+            //     model.rotation.y += 0.01;
+            // }
+
             renderer.render(scene, camera);
         }
-        
+
         // Обнаружение QR-кодов и обновление позиции
         function detectQRCode() {
             if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) {
                 requestAnimationFrame(detectQRCode);
                 return;
             }
-            
+
             // Создаем canvas для обработки, если его нет
+            // --- Используем willReadFrequently: true как указано в спецификации ---
             if (!canvas) {
                 canvas = document.createElement('canvas');
-                // Добавлен willReadFrequently для производительности
-                ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx = canvas.getContext('2d', { willReadFrequently: true }); // <<< Внедрено
             }
-            
+            // --- Конец внедрения ---
+
             // Обновляем размеры canvas
             canvas.width = video.videoWidth || 1280;
             canvas.height = video.videoHeight || 720;
-            
+
             // Проверяем, что видео загрузилось
             if (canvas.width === 0 || canvas.height === 0) {
                 setTimeout(detectQRCode, 100);
                 return;
             }
-            
+
             // Рисуем текущий кадр
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
+
             // Получаем данные изображения
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
+
             try {
                 // Обнаруживаем QR-код
                 const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
-                
+
                 if (qrCode && model) {
                     console.log('Найден QR-код:', qrCode.data);
-                    
+
                     // Показываем модель
                     model.visible = true;
-                    
+
                     // Позиционируем модель по центру QR-кода (исправлено)
                     const centerX = (
                         qrCode.location.topLeftCorner.x +
@@ -325,18 +386,18 @@
                         qrCode.location.bottomLeftCorner.y +
                         qrCode.location.bottomRightCorner.y
                     ) / 4;
-                    
+
                     // Преобразуем координаты в 3D пространство
                     model.position.x = ((centerX / canvas.width) - 0.5) * 10;
                     model.position.y = (0.5 - (centerY / canvas.height)) * 8;
                     model.position.z = 0;
-                    
-                    // Применяем масштаб из ползунка
-                    const scale = parseFloat(document.getElementById('modelSize').value);
+
+                    // Применяем текущий масштаб из ползунка
+                    const scale = parseFloat(modelSizeSlider.value);
                     model.scale.set(scale, scale, scale);
-                    
+
                     console.log('Модель позиционирована:', model.position);
-                    
+
                 } else if (model) {
                     // Скрываем модель, если QR-код не найден
                     model.visible = false;
@@ -345,23 +406,23 @@
             } catch (error) {
                 console.error('Ошибка обнаружения QR-кода:', error);
             }
-            
+
             requestAnimationFrame(detectQRCode);
         }
-        
+
         // Запуск AR
         async function startAR() {
             document.getElementById('startButton').style.display = 'none';
             document.getElementById('videoContainer').style.display = 'block';
             document.getElementById('videoContainer').style.zIndex = '1';
-            
+
             const cameraReady = await initCamera();
             if (!cameraReady) return;
-            
+
             initThree();
             animate();
             detectQRCode();
-            
+
             // Показываем тестовый QR-код
             const qrImg = document.createElement('img');
             qrImg.src = qrCodeUrl;
@@ -377,13 +438,13 @@
             qrImg.style.borderRadius = '10px';
             qrImg.id = 'testQRCode';
             document.body.appendChild(qrImg);
-            
+
             console.log('AR с QR запущен. Размеры видео:', video.videoWidth, 'x', video.videoHeight);
         }
-        
+
         // Обработчик кнопки
         document.getElementById('startButton').addEventListener('click', startAR);
-        
+
         // Отладочная информация
         console.log('Загружены библиотеки:');
         console.log('Three.js:', typeof THREE !== 'undefined' ? 'OK' : 'Ошибка');
