@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR с Aruco-маркерами</title>
+    <title>AR с QR-кодами</title>
     <style>
         body { 
             margin: 0; 
@@ -59,26 +59,27 @@
 <body>
     <button id="startButton">Запустить AR</button>
     <div id="markerHint">
-        Покажите камеру на Aruco-маркер<br>
-        <small>Маркер будет показан после запуска</small>
+        Покажите камеру на QR-код<br>
+        <small>QR-код будет показан после запуска</small>
     </div>
     <div id="videoContainer"></div>
     
     <!-- Подключаем библиотеки -->
     <script src="three.min.js"></script>
-    <script src="cv.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="cv.js"></script>
     <script src="aruco.js"></script>
-    console.log('GLTFLoader доступен:', typeof THREE.GLTFLoader !== 'undefined');
     
     <script>
         let video, scene, camera, renderer, model;
-        let markerDetector, canvas, ctx;
+        let canvas, ctx;
         let modelLoaded = false;
+        let qrCodeData = null;
         
         // Путь к твоей 3D модели
         const modelPath = 'model.glb'; // Замени на путь к твоей модели
-        const arucoMarkerUrl = 'marker.png';
+        const qrCodeUrl = 'qrcode.png'; // Путь к тестовому QR-коду
         
         // Инициализация камеры
         async function initCamera() {
@@ -91,8 +92,8 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { 
                         facingMode: 'environment',
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
+                        width: { ideal: 1280 }, // Высокое разрешение для QR
+                        height: { ideal: 720 }
                     } 
                 });
                 video.srcObject = stream;
@@ -162,7 +163,7 @@
             
             const geometry = new THREE.BoxGeometry(1, 1, 1);
             const material = new THREE.MeshPhongMaterial({ 
-                color: 0xff0000,
+                color: 0x00ff00, // Зеленый куб для QR
                 shininess: 30
             });
             model = new THREE.Mesh(geometry, material);
@@ -201,7 +202,7 @@
             // Загружаем модель
             loadModel();
             
-            // Скрываем модель до обнаружения маркера
+            // Скрываем модель до обнаружения QR-кода
             if (model) {
                 model.visible = false;
             }
@@ -220,36 +221,36 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Вращаем модель только когда она видна (для тестирования)
+            // Вращаем модель только когда она видна
             if (model && model.visible) {
-                // Убираем автоматическое вращение для реального AR
-                // model.rotation.x += 0.01;
-                // model.rotation.y += 0.01;
+                model.rotation.x += 0.01;
+                model.rotation.y += 0.01;
             }
             
             renderer.render(scene, camera);
         }
         
-        // Обнаружение маркеров и обновление позиции
-        function detectMarkers() {
+        // Обнаружение QR-кодов и обновление позиции
+        function detectQRCode() {
             if (!video || video.readyState !== HTMLMediaElement.HAVE_ENOUGH_DATA) {
-                requestAnimationFrame(detectMarkers);
+                requestAnimationFrame(detectQRCode);
                 return;
             }
             
             // Создаем canvas для обработки, если его нет
             if (!canvas) {
                 canvas = document.createElement('canvas');
+                // Добавлен willReadFrequently для производительности
                 ctx = canvas.getContext('2d', { willReadFrequently: true });
             }
             
             // Обновляем размеры canvas
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
             
             // Проверяем, что видео загрузилось
             if (canvas.width === 0 || canvas.height === 0) {
-                setTimeout(detectMarkers, 100);
+                setTimeout(detectQRCode, 100);
                 return;
             }
             
@@ -260,45 +261,41 @@
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
             try {
-                // Создаем детектор маркеров, если его нет
-                if (!markerDetector) {
-                    markerDetector = new AR.Detector();
-                }
+                // Обнаруживаем QR-код
+                const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
                 
-                // Обнаруживаем маркеры
-                const markers = markerDetector.detect(imageData);
-                
-                if (markers.length > 0 && model) {
-                    const marker = markers[0];
-                    console.log('Найден маркер ID:', marker.id);
+                if (qrCode && model) {
+                    console.log('Найден QR-код:', qrCode.data);
                     
                     // Показываем модель
                     model.visible = true;
                     
-                    // Правильное позиционирование
-                    const centerX = (marker.corners[0].x + marker.corners[2].x) / 2;
-                    const centerY = (marker.corners[0].y + marker.corners[2].y) / 2;
+                    // Позиционируем модель по центру QR-кода
+                    const centerX = qrCode.location.topLeftCorner.x + 
+                                   (qrCode.location.topRightCorner.x - qrCode.location.topLeftCorner.x) / 2;
+                    const centerY = qrCode.location.topLeftCorner.y + 
+                                   (qrCode.location.bottomLeftCorner.y - qrCode.location.topLeftCorner.y) / 2;
                     
                     // Преобразуем координаты в 3D пространство
                     model.position.x = ((centerX / canvas.width) - 0.5) * 10;
                     model.position.y = (0.5 - (centerY / canvas.height)) * 8;
                     model.position.z = 0;
                     
-                    // Нормальный масштаб
-                    model.scale.set(0.2, 0.2, 0.2);
+                    // Нормальный масштаб (QR-коды обычно больше)
+                    model.scale.set(1.5, 1.5, 1.5);
                     
                     console.log('Модель позиционирована:', model.position);
                     
                 } else if (model) {
-                    // Скрываем модель, если маркер не найден
+                    // Скрываем модель, если QR-код не найден
                     model.visible = false;
-                    console.log('Маркер не найден, модель скрыта');
+                    console.log('QR-код не найден, модель скрыта');
                 }
             } catch (error) {
-                console.error('Ошибка обнаружения маркеров:', error);
+                console.error('Ошибка обнаружения QR-кода:', error);
             }
             
-            requestAnimationFrame(detectMarkers);
+            requestAnimationFrame(detectQRCode);
         }
         
         // Запуск AR
@@ -312,25 +309,25 @@
             
             initThree();
             animate();
-            detectMarkers();
+            detectQRCode();
             
-            // Показываем тестовый маркер
-            const markerImg = document.createElement('img');
-            markerImg.src = arucoMarkerUrl;
-            markerImg.style.position = 'fixed';
-            markerImg.style.bottom = '80px';
-            markerImg.style.left = '50%';
-            markerImg.style.transform = 'translateX(-50%)';
-            markerImg.style.width = '120px';
-            markerImg.style.height = '120px';
-            markerImg.style.zIndex = '1000';
-            markerImg.style.border = '3px solid white';
-            markerImg.style.background = 'white';
-            markerImg.style.borderRadius = '10px';
-            markerImg.id = 'testMarker';
-            document.body.appendChild(markerImg);
+            // Показываем тестовый QR-код
+            const qrImg = document.createElement('img');
+            qrImg.src = qrCodeUrl;
+            qrImg.style.position = 'fixed';
+            qrImg.style.bottom = '80px';
+            qrImg.style.left = '50%';
+            qrImg.style.transform = 'translateX(-50%)';
+            qrImg.style.width = '150px';
+            qrImg.style.height = '150px';
+            qrImg.style.zIndex = '1000';
+            qrImg.style.border = '3px solid white';
+            qrImg.style.background = 'white';
+            qrImg.style.borderRadius = '10px';
+            qrImg.id = 'testQRCode';
+            document.body.appendChild(qrImg);
             
-            console.log('AR запущен. Размеры видео:', video.videoWidth, 'x', video.videoHeight);
+            console.log('AR с QR запущен. Размеры видео:', video.videoWidth, 'x', video.videoHeight);
         }
         
         // Обработчик кнопки
@@ -339,7 +336,7 @@
         // Отладочная информация
         console.log('Загружены библиотеки:');
         console.log('Three.js:', typeof THREE !== 'undefined' ? 'OK' : 'Ошибка');
-        console.log('ARuco:', typeof AR !== 'undefined' ? 'OK' : 'Ошибка');
+        console.log('jsQR:', typeof jsQR !== 'undefined' ? 'OK' : 'Ошибка');
     </script>
 </body>
 </html>
