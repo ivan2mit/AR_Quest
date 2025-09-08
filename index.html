@@ -366,13 +366,14 @@
                 // Обнаруживаем QR-код
                 const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
 
-                if (qrCode && model) {
+                                if (qrCode && model) {
                     console.log('Найден QR-код:', qrCode.data);
 
                     // Показываем модель
                     model.visible = true;
 
-                    // Позиционируем модель по центру QR-кода (исправлено)
+                    // --- Вычисление позиции и поворота ---
+                    // 1. Центр QR-кода
                     const centerX = (
                         qrCode.location.topLeftCorner.x +
                         qrCode.location.topRightCorner.x +
@@ -387,20 +388,38 @@
                         qrCode.location.bottomRightCorner.y
                     ) / 4;
 
-                    // Преобразуем координаты в 3D пространство
+                    // 2. Вычисление угла поворота (в радианах)
+                    // Используем верхнюю сторону QR-кода (topLeft -> topRight)
+                    const dx = qrCode.location.topRightCorner.x - qrCode.location.topLeftCorner.x;
+                    const dy = qrCode.location.topRightCorner.y - qrCode.location.topLeftCorner.y;
+                    const angle = Math.atan2(dy, dx); // Угол в радианах
+
+                    // --- Конец вычислений ---
+
+                    // Преобразуем координаты центра в 3D пространство
                     model.position.x = ((centerX / canvas.width) - 0.5) * 10;
                     model.position.y = (0.5 - (centerY / canvas.height)) * 8;
-                    model.position.z = 0;
+                    model.position.z = 0; // На плоскости маркера
+
+                    // --- Применение поворота ---
+                    // Сбрасываем вращение по X и Y, чтобы модель была "плоской"
+                    model.rotation.x = 0;
+                    model.rotation.y = 0;
+                    // Поворачиваем модель вокруг оси Z на вычисленный угол
+                    model.rotation.z = -angle; // Минус, чтобы компенсировать направление
+                    // --- Конец применения поворота ---
 
                     // Применяем текущий масштаб из ползунка
                     const scale = parseFloat(modelSizeSlider.value);
                     model.scale.set(scale, scale, scale);
 
-                    console.log('Модель позиционирована:', model.position);
+                    console.log('Модель позиционирована:', model.position, 'Поворот (градусы):', (angle * 180 / Math.PI).toFixed(2));
 
                 } else if (model) {
                     // Скрываем модель, если QR-код не найден
                     model.visible = false;
+                    // Сбрасываем вращение, когда модель скрыта (по желанию)
+                    // model.rotation.set(0, 0, 0);
                     console.log('QR-код не найден, модель скрыта');
                 }
             } catch (error) {
