@@ -1,0 +1,15 @@
+{
+  "markers": [
+    {
+      "marker": "kanji",
+      "model": "models/cat.glb",
+      "scale": "0.8 0.8 0.8"
+    },
+    {
+      "marker": "barcode",
+      "patternUrl": "models/model1.patt",
+      "model": "models/model1.glb",
+      "scale": "1.2 1.2 1.2"
+    }
+  ]
+}
