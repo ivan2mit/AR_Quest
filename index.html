@@ -1,225 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AR.js Multi-Marker App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <!-- Локальные библиотеки -->
   <script src="lib/aframe.min.js"></script>
   <script src="lib/aframe-ar.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-    }
-
-    .a-canvas {
-      position: fixed !important;
-      top: 0;
-      left: 0;
-      width: 100% !important;
-      height: 100% !important;
-      z-index: 1;
-      object-fit: cover;
-    }
-
+    body { margin: 0; overflow: hidden; }
     #loading {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      color: white; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px;
-      z-index: 9999;
-    }
-
-    .sound-button {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      padding: 12px 24px; font-size: 16px; background: #ff4d4d; color: white;
-      border: none; border-radius: 50px; cursor: pointer; z-index: 9999;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      opacity: 0; transition: opacity 0.3s ease;
-    }
-
-    .sound-button.visible {
-      opacity: 1;
+      background: rgba(0,0,0,0.7); color: #fff; padding: 12px 20px;
+      border-radius: 6px; font-family: sans-serif; z-index: 9999;
     }
   </style>
 </head>
 <body>
-  <div id="loading">Загрузка AR-приложения...</div>
+  <div id="loading">Загрузка...</div>
 
-  <!-- 🎯 Сцена: приоритет — чёткость + трекинг -->
   <a-scene
     vr-mode-ui="enabled: false"
-    renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true;"
-    arjs="trackingMethod: best; sourceType: webcam;
-           sourceWidth: 1024; sourceHeight: 768;
-           displayWidth: auto; displayHeight: auto;
-           detectionMode: color;
-           matrixCodeType: 3x3;
-           canvasInsertMode: append;
-           debugUIEnabled: false;"
-    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+    renderer="antialias: true; logarithmicDepthBuffer: true"
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
   >
-    <a-entity camera="active: true; fov: 60;" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
+    <a-entity camera></a-entity>
     <a-entity id="marker-container"></a-entity>
   </a-scene>
 
-  <button id="global-sound-button" class="sound-button">🔊 Включить звук</button>
-
   <script>
-    // 🧭 Определяем браузер
-    function getBrowser() {
-      const ua = navigator.userAgent;
-      if (ua.includes('YaBrowser')) return 'yandex';
-      if (ua.includes('Edg')) return 'edge';
-      if (ua.includes('Chrome') && !ua.includes('Edg')) return 'chrome';
-      if (ua.includes('Safari') && !ua.includes('Chrome')) return 'safari';
-      return 'other';
-    }
+    const container = document.getElementById("marker-container");
+    const loadingDiv = document.getElementById("loading");
 
-    // 📏 Умный масштаб: компенсируем разные devicePixelRatio
-    const baseDpr = 2.0; // "эталонный" DPR, за который берём нормальный масштаб
-    const actualDpr = window.devicePixelRatio || 1;
-    const dprFix = baseDpr / actualDpr;
-
-    const browserScaleFix = {
-      yandex: 0.95 * dprFix,  // чуть уменьшаем в Яндексе + компенсация DPR
-      chrome: 1.0 * dprFix,
-      safari: 1.0 * dprFix,
-      edge: 1.0 * dprFix,
-      other: 1.0 * dprFix
-    };
-
-    const browserFix = browserScaleFix[getBrowser()] || 1.0;
-
-    // Элементы DOM
-    const container = document.getElementById('marker-container');
-    const loadingDiv = document.getElementById('loading');
-    const soundButton = document.getElementById('global-sound-button');
-
-    let userInteracted = false;
-
-    function showSoundButton() {
-      soundButton.classList.add('visible');
-    }
-
-    function hideSoundButton() {
-      soundButton.classList.remove('visible');
-    }
-
-    soundButton.addEventListener('click', () => {
-      userInteracted = true;
-      hideSoundButton();
-      document.querySelectorAll('a-sound[data-waiting]').forEach(soundEl => {
-        soundEl.components.sound.playSound();
-        soundEl.removeAttribute('data-waiting');
-      });
-    });
-
-    // 📥 Загрузка конфигурации
-    fetch('config.json')
-      .then(response => {
-        if (!response.ok) throw new Error('config.json не найден');
-        return response.json();
-      })
+    fetch("config.json")
+      .then(r => r.json())
       .then(config => {
-        if (!config.markers || !Array.isArray(config.markers) || config.markers.length === 0) {
-          throw new Error('Маркеры не указаны');
-        }
+        config.markers.forEach(item => {
+          const marker = document.createElement("a-marker");
+          marker.setAttribute("type", "pattern");
+          marker.setAttribute("url", item.patternUrl);
 
-        config.markers.forEach((item, index) => {
-          const marker = document.createElement('a-marker');
-
-          if (item.patternUrl) {
-            marker.setAttribute('type', 'pattern');
-            marker.setAttribute('url', item.patternUrl);
-          } else {
-            marker.setAttribute('preset', item.marker);
-          }
-
-          // ✅ Размер маркера = 1 метр (по умолчанию)
-
-          const soundEl = document.createElement('a-sound');
-          soundEl.setAttribute('src', item.sound);
-          soundEl.setAttribute('autoplay', false);
-          soundEl.setAttribute('positional', false);
-          soundEl.setAttribute('volume', '0.8');
-          marker.appendChild(soundEl);
-
-          // 📐 Масштаб с поправкой на браузер и devicePixelRatio
-          let scaleValues = [1, 1, 1];
-
-          if (item.scale) {
-            const userScale = item.scale.split(' ').map(Number);
-            if (userScale.length === 3) {
-              scaleValues = userScale.map(s => s * browserFix);
-            }
-          } else {
-            scaleValues = [browserFix, browserFix, browserFix];
-          }
-
-          const model = document.createElement('a-entity');
-          model.setAttribute('gltf-model', item.model);
-          model.setAttribute('scale', scaleValues.join(' '));
-          model.setAttribute('position', '0 0 0');
-          model.setAttribute('animation', item.animation || 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
+          // модель
+          const model = document.createElement("a-entity");
+          model.setAttribute("gltf-model", item.model);
+          if (item.scale) model.setAttribute("scale", item.scale);
+          model.setAttribute("animation", "property: rotation; to: 0 360 0; loop: true; dur: 6000; easing: linear");
           marker.appendChild(model);
 
-          let soundRequestedForMarker = false;
+          // звук (если указан)
+          if (item.sound) {
+            const soundEl = document.createElement("a-sound");
+            soundEl.setAttribute("src", item.sound);
+            soundEl.setAttribute("autoplay", false);
+            soundEl.setAttribute("positional", false);
+            marker.appendChild(soundEl);
 
-          marker.addEventListener('markerFound', () => {
-            if (!userInteracted && !soundRequestedForMarker) {
-              showSoundButton();
-              soundRequestedForMarker = true;
-            }
-
-            if (userInteracted) {
+            marker.addEventListener("markerFound", () => {
               soundEl.components.sound.playSound();
-            } else {
-              soundEl.setAttribute('data-waiting', 'true');
-            }
-          });
-
-          marker.addEventListener('markerLost', () => {
-            soundRequestedForMarker = false;
-          });
+            });
+            marker.addEventListener("markerLost", () => {
+              soundEl.components.sound.stopSound();
+            });
+          }
 
           container.appendChild(marker);
         });
 
-        loadingDiv.style.display = 'none';
+        loadingDiv.style.display = "none";
       })
       .catch(err => {
-        console.warn('Ошибка загрузки или пустой config.json:', err);
-
-        // 🔧 Заглушка
-        const fallbackMarker = document.createElement('a-marker');
-        fallbackMarker.setAttribute('preset', 'hiro');
-
-        const fallbackModel = document.createElement('a-box');
-        fallbackModel.setAttribute('color', '#FF6347');
-        fallbackModel.setAttribute('depth', 0.2);
-        fallbackModel.setAttribute('height', 0.2);
-        fallbackModel.setAttribute('width', 0.2);
-        fallbackModel.setAttribute('position', '0 0 0');
-        fallbackModel.setAttribute('animation', 'property: rotation; to: 360 360 360; loop: true; dur: 3000; easing: linear');
-
-        const text = document.createElement('a-text');
-        text.setAttribute('value', 'Модель не загружена');
-        text.setAttribute('align', 'center');
-        text.setAttribute('color', 'white');
-        text.setAttribute('position', '0 0.3 0');
-        text.setAttribute('scale', '1.5 1.5 1.5');
-
-        fallbackMarker.appendChild(fallbackModel);
-        fallbackMarker.appendChild(text);
-        container.appendChild(fallbackMarker);
-
-        loadingDiv.innerText = '⚠️ Конфиг не найден — показана заглушка';
-        setTimeout(() => {
-          loadingDiv.style.display = 'none';
-        }, 2000);
+        console.warn("Ошибка config.json:", err);
+        loadingDiv.textContent = "⚠️ Ошибка загрузки конфигурации";
       });
   </script>
 </body>
