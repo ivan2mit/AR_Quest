@@ -3,7 +3,7 @@
     {
       "marker": "hiro",
       "model": "models/model1.glb",
-      "scale": "1.2 1.2 1.2"
+      "scale": "1 1 1"
     },
     {
       "marker": "kanji",
@@ -14,7 +14,7 @@
       "marker": "barcode",
       "patternUrl": "models/model1.patt",
       "model": "models/model1.glb",
-      "scale": "1.2 1.2 1.2"
+      "scale": "1 1 1"
     }
   ]
 }
