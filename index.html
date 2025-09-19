@@ -1,97 +1,93 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <title>AR.js Multi-Marker App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AR.js Custom + Hiro</title>
+    <script src="libs/aframe.min.js"></script>
+    <script src="libs/aframe-ar.min.js"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #startButton {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 10px 20px;
+        font-size: 16px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        z-index: 10;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="startButton">Включить звук</button>
 
-  <!-- Локальные библиотеки -->
-  <script src="lib/aframe.min.js"></script>
-  <script src="lib/aframe-ar.js"></script>
+    <a-scene
+      vr-mode-ui="enabled: false"
+      embedded
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+    >
+      <a-entity camera></a-entity>
+    </a-scene>
 
-  <style>
-    body { margin: 0; overflow: hidden; }
-    #loading {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.7); color: #fff; padding: 12px 20px;
-      border-radius: 6px; font-family: sans-serif; z-index: 9999;
-    }
-    #debug {
-      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.6); color: #0f0; padding: 6px 12px;
-      font-family: monospace; border-radius: 4px; font-size: 14px;
-      z-index: 9999;
-    }
-  </style>
-</head>
-<body>
-  <div id="loading">Загрузка...</div>
-  <div id="debug">🚫 Маркер не найден</div>
+    <script>
+      let soundEnabled = false;
 
-  <a-scene
-    vr-mode-ui="enabled: false"
-    renderer="antialias: true; logarithmicDepthBuffer: true"
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
-  >
-    <a-entity camera></a-entity>
-    <a-entity id="marker-container"></a-entity>
-  </a-scene>
+      document.getElementById('startButton').addEventListener('click', () => {
+        soundEnabled = true;
+        document.getElementById('startButton').style.display = 'none';
+      });
 
-  <script>
-    const container = document.getElementById("marker-container");
-    const loadingDiv = document.getElementById("loading");
-    const debugDiv = document.getElementById("debug");
+      async function init() {
+        const response = await fetch('config.json');
+        const markers = await response.json();
 
-    fetch("config.json")
-      .then(r => r.json())
-      .then(config => {
-        config.markers.forEach(item => {
-          const marker = document.createElement("a-marker");
-          marker.setAttribute("type", "pattern");
-          marker.setAttribute("url", item.patternUrl);
+        const scene = document.querySelector('a-scene');
 
-          // модель
-          const model = document.createElement("a-entity");
-          model.setAttribute("gltf-model", item.model);
-          if (item.scale) model.setAttribute("scale", item.scale);
-          model.setAttribute("animation", "property: rotation; to: 0 360 0; loop: true; dur: 6000; easing: linear");
-          marker.appendChild(model);
+        markers.forEach(item => {
+          const marker = document.createElement('a-marker');
 
-          // звук (если указан)
-          if (item.sound) {
-            const soundEl = document.createElement("a-sound");
-            soundEl.setAttribute("src", item.sound);
-            soundEl.setAttribute("autoplay", false);
-            soundEl.setAttribute("positional", false);
-            marker.appendChild(soundEl);
-
-            marker.addEventListener("markerFound", () => {
-              soundEl.components.sound.playSound();
-            });
-            marker.addEventListener("markerLost", () => {
-              soundEl.components.sound.stopSound();
-            });
+          // Если marker = "hiro" → используем встроенный пресет
+          if (item.marker === "hiro") {
+            marker.setAttribute('preset', 'hiro');
+          } else {
+            marker.setAttribute('type', 'pattern');
+            marker.setAttribute('url', item.marker);
           }
 
-          // 🔍 DEBUG: события обнаружения
-          marker.addEventListener("markerFound", () => {
-            debugDiv.textContent = "✅ Найден маркер: " + (item.patternUrl || item.model);
-            debugDiv.style.color = "#0f0";
-          });
-          marker.addEventListener("markerLost", () => {
-            debugDiv.textContent = "🚫 Маркер не найден";
-            debugDiv.style.color = "#f44";
+          // 3D модель
+          const model = document.createElement('a-entity');
+          model.setAttribute('gltf-model', item.model);
+          model.setAttribute('scale', item.scale || '1 1 1');
+          model.setAttribute('position', item.position || '0 0 0');
+          model.setAttribute('animation-mixer', '');
+
+          // Звук
+          const sound = document.createElement('a-sound');
+          sound.setAttribute('src', item.sound);
+          sound.setAttribute('autoplay', 'false');
+          sound.setAttribute('loop', 'false');
+
+          // Управление звуком
+          marker.addEventListener('markerFound', () => {
+            if (soundEnabled) sound.components.sound.playSound();
           });
 
-          container.appendChild(marker);
+          marker.addEventListener('markerLost', () => {
+            if (soundEnabled) sound.components.sound.stopSound();
+          });
+
+          marker.appendChild(model);
+          marker.appendChild(sound);
+          scene.appendChild(marker);
         });
+      }
 
-        loadingDiv.style.display = "none";
-      })
-      .catch(err => {
-        console.warn("Ошибка config.json:", err);
-        loadingDiv.textContent = "⚠️ Ошибка загрузки конфигурации";
-      });
-  </script>
-</body>
+      init();
+    </script>
+  </body>
 </html>
