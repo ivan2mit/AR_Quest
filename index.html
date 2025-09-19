@@ -69,22 +69,9 @@
           model.setAttribute('animation-mixer', '');
 
           // Звук
-          const sound = document.createElement('a-sound');
-          sound.setAttribute('src', item.sound);
-          sound.setAttribute('autoplay', 'false');
-          sound.setAttribute('loop', 'false');
 
-          // Управление звуком
-          marker.addEventListener('markerFound', () => {
-            if (soundEnabled) sound.components.sound.playSound();
-          });
-
-          marker.addEventListener('markerLost', () => {
-            if (soundEnabled) sound.components.sound.stopSound();
-          });
 
           marker.appendChild(model);
-          marker.appendChild(sound);
           scene.appendChild(marker);
         });
       }
