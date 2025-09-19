@@ -16,10 +16,17 @@
       background: rgba(0,0,0,0.7); color: #fff; padding: 12px 20px;
       border-radius: 6px; font-family: sans-serif; z-index: 9999;
     }
+    #debug {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.6); color: #0f0; padding: 6px 12px;
+      font-family: monospace; border-radius: 4px; font-size: 14px;
+      z-index: 9999;
+    }
   </style>
 </head>
 <body>
   <div id="loading">Загрузка...</div>
+  <div id="debug">🚫 Маркер не найден</div>
 
   <a-scene
     vr-mode-ui="enabled: false"
@@ -33,6 +40,7 @@
   <script>
     const container = document.getElementById("marker-container");
     const loadingDiv = document.getElementById("loading");
+    const debugDiv = document.getElementById("debug");
 
     fetch("config.json")
       .then(r => r.json())
@@ -64,6 +72,16 @@
               soundEl.components.sound.stopSound();
             });
           }
+
+          // 🔍 DEBUG: события обнаружения
+          marker.addEventListener("markerFound", () => {
+            debugDiv.textContent = "✅ Найден маркер: " + (item.patternUrl || item.model);
+            debugDiv.style.color = "#0f0";
+          });
+          marker.addEventListener("markerLost", () => {
+            debugDiv.textContent = "🚫 Маркер не найден";
+            debugDiv.style.color = "#f44";
+          });
 
           container.appendChild(marker);
         });
