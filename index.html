@@ -2,18 +2,36 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AR.js Multi-Marker App</title>
-  <!-- A-Frame и AR.js -->
+
+  <!-- Локальные библиотеки -->
   <script src="lib/aframe.min.js"></script>
   <script src="lib/aframe-ar.js"></script>
+
   <style>
-    body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Растягиваем canvas на весь экран */
+    .a-canvas {
+      position: fixed !important;
+      top: 0;
+      left: 0;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 1;
+    }
+
     #loading {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       color: white; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px;
       z-index: 9999;
     }
+
     .sound-button {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       padding: 12px 24px; font-size: 16px; background: #ff4d4d; color: white;
@@ -21,6 +39,7 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
       opacity: 0; transition: opacity 0.3s ease;
     }
+
     .sound-button.visible {
       opacity: 1;
     }
@@ -29,20 +48,20 @@
 <body>
   <div id="loading">Загрузка AR-приложения...</div>
 
+  <!-- AR-сцена с настройками масштаба камеры -->
   <a-scene
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true;"
     embedded
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+    vr-mode-ui="enabled: false"
+    renderer="antialias: true; logarithmicDepthBuffer: true;"
+    arjs="trackingMethod: best; sourceType: webcam;
+           sourceWidth: 1280; sourceHeight: 720;
+           displayWidth: 100%; displayHeight: 100%;
+           debugUIEnabled: false;"
   >
-    <!-- Камера -->
     <a-entity camera></a-entity>
-
-    <!-- Контейнер для маркеров -->
     <a-entity id="marker-container"></a-entity>
   </a-scene>
 
-  <!-- Кнопка воспроизведения звука (изначально скрыта) -->
   <button id="global-sound-button" class="sound-button">🔊 Включить звук</button>
 
   <script>
@@ -50,31 +69,26 @@
     const loadingDiv = document.getElementById('loading');
     const soundButton = document.getElementById('global-sound-button');
 
-    // Флаг: звук разрешён пользователем
     let userInteracted = false;
 
-    // Показать кнопку звука
     function showSoundButton() {
       soundButton.classList.add('visible');
     }
 
-    // Скрыть кнопку звука
     function hideSoundButton() {
       soundButton.classList.remove('visible');
     }
 
-    // Разрешить звук после клика
     soundButton.addEventListener('click', () => {
       userInteracted = true;
       hideSoundButton();
-      // Возобновляем все звуки, которые ждали взаимодействия
       document.querySelectorAll('a-sound[data-waiting]').forEach(soundEl => {
         soundEl.components.sound.playSound();
         soundEl.removeAttribute('data-waiting');
       });
     });
 
-    // Загрузка конфига
+    // Загрузка конфигурации
     fetch('config.json')
       .then(response => response.json())
       .then(config => {
@@ -92,7 +106,6 @@
             marker.setAttribute('preset', item.marker);
           }
 
-          // Элемент звука
           const soundEl = document.createElement('a-sound');
           soundEl.setAttribute('src', item.sound);
           soundEl.setAttribute('autoplay', false);
@@ -100,7 +113,6 @@
           soundEl.setAttribute('volume', '0.8');
           marker.appendChild(soundEl);
 
-          // 3D модель
           const model = document.createElement('a-entity');
           model.setAttribute('gltf-model', item.model);
           model.setAttribute('scale', item.scale || '1 1 1');
@@ -108,7 +120,6 @@
           model.setAttribute('animation', item.animation || 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
           marker.appendChild(model);
 
-          // Флаг: звук уже запрашивался для этого маркера
           let soundRequestedForMarker = false;
 
           marker.addEventListener('markerFound', () => {
@@ -125,10 +136,7 @@
           });
 
           marker.addEventListener('markerLost', () => {
-            // Сбрасываем флаг, чтобы при следующем обнаружении снова запросить действие
             soundRequestedForMarker = false;
-            // Опционально: остановить звук
-            // soundEl.components.sound.stopSound();
           });
 
           container.appendChild(marker);
@@ -139,7 +147,7 @@
       .catch(err => {
         console.warn('Ошибка загрузки или пустой config.json:', err);
 
-        // Создаём заглушку
+        // Заглушка
         const fallbackMarker = document.createElement('a-marker');
         fallbackMarker.setAttribute('preset', 'hiro');
 
@@ -160,7 +168,6 @@
 
         fallbackMarker.appendChild(fallbackModel);
         fallbackMarker.appendChild(text);
-
         container.appendChild(fallbackMarker);
 
         loadingDiv.innerText = '⚠️ Конфиг не найден — показана заглушка';
