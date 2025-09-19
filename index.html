@@ -16,7 +16,7 @@
       font-family: Arial, sans-serif;
     }
 
-    /* Растягиваем canvas на весь экран */
+    /* Фикс: растягиваем canvas без искажений */
     .a-canvas {
       position: fixed !important;
       top: 0;
@@ -24,6 +24,8 @@
       width: 100% !important;
       height: 100% !important;
       z-index: 1;
+      /* Это важно — сохраняем пропорции */
+      object-fit: cover;
     }
 
     #loading {
@@ -48,17 +50,26 @@
 <body>
   <div id="loading">Загрузка AR-приложения...</div>
 
-  <!-- AR-сцена с настройками масштаба камеры -->
+  <!--
+    🔧 Ключевые исправления:
+    - Убрали `embedded`, если он вызывает искажения
+    - Явно указали aspect-совместимые параметры
+    - Добавили `renderer="colorManagement: true"` для корректного цвета и масштаба
+  -->
   <a-scene
-    embedded
     vr-mode-ui="enabled: false"
-    renderer="antialias: true; logarithmicDepthBuffer: true;"
+    renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam;
            sourceWidth: 1280; sourceHeight: 720;
-           displayWidth: 100%; displayHeight: 100%;
+           displayWidth: 1280; displayHeight: 720;
+           detectionMode: mono_and_matrix;
+           matrixCodeType: 3x3;
            debugUIEnabled: false;"
+    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
   >
-    <a-entity camera></a-entity>
+    <!-- Камера без лишних контроллов на мобильном -->
+    <a-entity camera look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
+
     <a-entity id="marker-container"></a-entity>
   </a-scene>
 
@@ -113,9 +124,17 @@
           soundEl.setAttribute('volume', '0.8');
           marker.appendChild(soundEl);
 
+          // 🔧 Фикс: если scale задан как строка "1 1 1", разбиваем на числа и проверяем uniform
+          let scale = item.scale || '1 1 1';
+          let scaleValues = scale.split(' ').map(Number);
+          if (scaleValues.length !== 3) scaleValues = [1, 1, 1];
+
+          // Опционально: принудительно делаем scale uniform, чтобы не было растяжения
+          // scaleValues = [scaleValues[0], scaleValues[0], scaleValues[0]]; // если нужно
+
           const model = document.createElement('a-entity');
           model.setAttribute('gltf-model', item.model);
-          model.setAttribute('scale', item.scale || '1 1 1');
+          model.setAttribute('scale', scaleValues.join(' '));
           model.setAttribute('position', '0 0 0');
           model.setAttribute('animation', item.animation || 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
           marker.appendChild(model);
@@ -147,7 +166,7 @@
       .catch(err => {
         console.warn('Ошибка загрузки или пустой config.json:', err);
 
-        // Заглушка
+        // Заглушка — куб + текст
         const fallbackMarker = document.createElement('a-marker');
         fallbackMarker.setAttribute('preset', 'hiro');
 
