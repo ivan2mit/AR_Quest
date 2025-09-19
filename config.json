@@ -12,8 +12,8 @@
     },
     {
       "marker": "barcode",
-      "patternUrl": "models/model1.patt",
-      "model": "models/model1.glb",
+      "patternUrl": "models/model2.patt",
+      "model": "models/model2.glb",
       "scale": "1 1 1"
     }
   ]
