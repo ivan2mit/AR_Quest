@@ -16,7 +16,6 @@
       font-family: Arial, sans-serif;
     }
 
-    /* Растягиваем canvas на весь экран без искажений */
     .a-canvas {
       position: fixed !important;
       top: 0;
@@ -49,20 +48,19 @@
 <body>
   <div id="loading">Загрузка AR-приложения...</div>
 
-  <!-- 🎯 Сцена с фиксированным масштабом для кроссплатформенности -->
+  <!-- 🎯 Сцена: оптимизирована для трекинга, а не для масштаба -->
   <a-scene
     vr-mode-ui="enabled: false"
     renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true; devicePixelRatio: 1;"
     arjs="trackingMethod: best; sourceType: webcam;
-           sourceWidth: 1280; sourceHeight: 720;
-           displayWidth: 1280; displayHeight: 720;
-           aspectRatio: fullscreen;
+           sourceWidth: auto; sourceHeight: auto;
+           displayWidth: auto; displayHeight: auto;
            detectionMode: mono_and_matrix;
            matrixCodeType: 3x3;
+           canvasInsertMode: append;
            debugUIEnabled: true;"
     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
   >
-    <!-- 📐 Камера с фиксированным полем зрения -->
     <a-entity camera="active: true; fov: 60;" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
     <a-entity id="marker-container"></a-entity>
   </a-scene>
@@ -70,7 +68,7 @@
   <button id="global-sound-button" class="sound-button">🔊 Включить звук</button>
 
   <script>
-    // 🧩 Фикс: принудительно выравниваем devicePixelRatio для одинакового масштаба
+    // 🧩 Фикс: принудительно выравниваем devicePixelRatio (можно закомментировать, если мешает)
     try {
       if (Object.defineProperty && window.devicePixelRatio !== 1) {
         Object.defineProperty(window, 'devicePixelRatio', {
@@ -82,7 +80,7 @@
       console.warn('Не удалось переопределить devicePixelRatio:', e);
     }
 
-    // 🧭 Определяем браузер для тонкой настройки масштаба (если нужно)
+    // 🧭 Определяем браузер
     function getBrowser() {
       const ua = navigator.userAgent;
       if (ua.includes('YaBrowser')) return 'yandex';
@@ -94,7 +92,7 @@
 
     // 📏 Поправочные коэффициенты масштаба (подбираются экспериментально)
     const browserScaleFix = {
-      yandex: 0.95,  // чуть уменьшаем в Яндексе
+      yandex: 0.95,
       chrome: 1.0,
       safari: 1.0,
       edge: 1.0,
@@ -141,7 +139,6 @@
         config.markers.forEach((item, index) => {
           const marker = document.createElement('a-marker');
 
-          // Тип маркера
           if (item.patternUrl) {
             marker.setAttribute('type', 'pattern');
             marker.setAttribute('url', item.patternUrl);
@@ -149,10 +146,8 @@
             marker.setAttribute('preset', item.marker);
           }
 
-          // ✅ ВАЖНО: размер маркера = 1 метр (по умолчанию) — не меняем!
-          // Это позволяет работать в метрической системе: 1 единица = 1 метр
+          // ✅ Размер маркера = 1 метр (по умолчанию) — не меняем
 
-          // Элемент звука
           const soundEl = document.createElement('a-sound');
           soundEl.setAttribute('src', item.sound);
           soundEl.setAttribute('autoplay', false);
@@ -160,19 +155,18 @@
           soundEl.setAttribute('volume', '0.8');
           marker.appendChild(soundEl);
 
-          // 📐 Масштаб модели с поправкой на браузер
-          let scaleValues = [1, 1, 1]; // по умолчанию 1:1:1
+          // 📐 Масштаб с поправкой на браузер
+          let scaleValues = [1, 1, 1];
 
           if (item.scale) {
             const userScale = item.scale.split(' ').map(Number);
             if (userScale.length === 3) {
-              scaleValues = userScale.map(s => s * browserFix); // применяем поправку
+              scaleValues = userScale.map(s => s * browserFix);
             }
           } else {
-            scaleValues = [browserFix, browserFix, browserFix]; // если scale не задан — применяем поправку ко всем осям
+            scaleValues = [browserFix, browserFix, browserFix];
           }
 
-          // 3D модель
           const model = document.createElement('a-entity');
           model.setAttribute('gltf-model', item.model);
           model.setAttribute('scale', scaleValues.join(' '));
@@ -180,7 +174,6 @@
           model.setAttribute('animation', item.animation || 'property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear');
           marker.appendChild(model);
 
-          // Флаг для предотвращения повторного запроса звука
           let soundRequestedForMarker = false;
 
           marker.addEventListener('markerFound', () => {
@@ -208,7 +201,7 @@
       .catch(err => {
         console.warn('Ошибка загрузки или пустой config.json:', err);
 
-        // 🔧 Заглушка на случай ошибки
+        // 🔧 Заглушка
         const fallbackMarker = document.createElement('a-marker');
         fallbackMarker.setAttribute('preset', 'hiro');
 
