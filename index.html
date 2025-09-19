@@ -48,17 +48,17 @@
 <body>
   <div id="loading">Загрузка AR-приложения...</div>
 
-  <!-- 🎯 Сцена: оптимизирована для трекинга, а не для масштаба -->
+  <!-- 🎯 Сцена: приоритет — чёткость + трекинг -->
   <a-scene
     vr-mode-ui="enabled: false"
-    renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true; devicePixelRatio: 1;"
+    renderer="antialias: true; colorManagement: true; logarithmicDepthBuffer: true;"
     arjs="trackingMethod: best; sourceType: webcam;
            sourceWidth: auto; sourceHeight: auto;
            displayWidth: auto; displayHeight: auto;
            detectionMode: mono_and_matrix;
            matrixCodeType: 3x3;
            canvasInsertMode: append;
-           debugUIEnabled: true;"
+           debugUIEnabled: false;"
     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
   >
     <a-entity camera="active: true; fov: 60;" look-controls="enabled: false" wasd-controls="enabled: false"></a-entity>
@@ -68,18 +68,6 @@
   <button id="global-sound-button" class="sound-button">🔊 Включить звук</button>
 
   <script>
-    // 🧩 Фикс: принудительно выравниваем devicePixelRatio (можно закомментировать, если мешает)
-    try {
-      if (Object.defineProperty && window.devicePixelRatio !== 1) {
-        Object.defineProperty(window, 'devicePixelRatio', {
-          get: function() { return 1; },
-          configurable: true
-        });
-      }
-    } catch(e) {
-      console.warn('Не удалось переопределить devicePixelRatio:', e);
-    }
-
     // 🧭 Определяем браузер
     function getBrowser() {
       const ua = navigator.userAgent;
@@ -90,13 +78,17 @@
       return 'other';
     }
 
-    // 📏 Поправочные коэффициенты масштаба (подбираются экспериментально)
+    // 📏 Умный масштаб: компенсируем разные devicePixelRatio
+    const baseDpr = 2.0; // "эталонный" DPR, за который берём нормальный масштаб
+    const actualDpr = window.devicePixelRatio || 1;
+    const dprFix = baseDpr / actualDpr;
+
     const browserScaleFix = {
-      yandex: 0.95,
-      chrome: 1.0,
-      safari: 1.0,
-      edge: 1.0,
-      other: 1.0
+      yandex: 0.95 * dprFix,  // чуть уменьшаем в Яндексе + компенсация DPR
+      chrome: 1.0 * dprFix,
+      safari: 1.0 * dprFix,
+      edge: 1.0 * dprFix,
+      other: 1.0 * dprFix
     };
 
     const browserFix = browserScaleFix[getBrowser()] || 1.0;
@@ -146,7 +138,7 @@
             marker.setAttribute('preset', item.marker);
           }
 
-          // ✅ Размер маркера = 1 метр (по умолчанию) — не меняем
+          // ✅ Размер маркера = 1 метр (по умолчанию)
 
           const soundEl = document.createElement('a-sound');
           soundEl.setAttribute('src', item.sound);
@@ -155,7 +147,7 @@
           soundEl.setAttribute('volume', '0.8');
           marker.appendChild(soundEl);
 
-          // 📐 Масштаб с поправкой на браузер
+          // 📐 Масштаб с поправкой на браузер и devicePixelRatio
           let scaleValues = [1, 1, 1];
 
           if (item.scale) {
