@@ -2,39 +2,60 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
-    body { margin: 0; padding: 0; }
-    model-viewer {
-      width: 100%;
-      height: 100vh;
-    }
+    body { margin: 0; overflow: hidden; }
   </style>
 </head>
 <body>
 
-  <model-viewer
-    src="model.glb"
-    alt="A 3D astronaut"
-    ar
-    ar-modes="webxr scene-viewer quick-look"
-    camera-controls
-    auto-rotate
-    shadow-intensity="1"
-  ></model-viewer>
+  <a-scene
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;"
+    embedded
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+  >
+    <!-- Маркер Hiro -->
+    <a-marker preset="hiro">
+      <!-- 3D модель -->
+      <a-entity
+        gltf-model="https://cdn.jsdelivr.net/gh/google/model-viewer@1.11.2/examples/assets/Astronaut.glb"
+        scale="0.5 0.5 0.5"
+        position="0 0 0"
+        rotation="-90 0 0"
+        sound-on-visible
+      ></a-entity>
+    </a-marker>
 
-  <audio id="sound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_5b1a8d94bf.mp3" preload="auto"></audio>
+    <!-- Камера -->
+    <a-entity camera></a-entity>
+  </a-scene>
 
+  <!-- Аудио (скрытый элемент) -->
+  <audio id="marker-sound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_5b1a8d94bf.mp3" preload="auto"></audio>
+
+  <!-- Скрипт для звука при появлении маркера -->
   <script>
-    const viewer = document.querySelector('model-viewer');
-    const audio = document.getElementById('sound');
+    AFRAME.registerComponent('sound-on-visible', {
+      init: function () {
+        const audio = document.getElementById('marker-sound');
+        const marker = this.el.sceneEl.querySelector('a-marker');
 
-    // Воспроизводим звук при клике на модель
-    viewer.addEventListener('click', () => {
-      if (audio.paused) {
-        audio.play().catch(e => console.log("Audio play failed:", e));
-      } else {
-        audio.pause();
+        marker.addEventListener('markerFound', () => {
+          console.log('Маркер найден — играем звук');
+          if (audio) {
+            audio.currentTime = 0; // с начала
+            audio.play().catch(e => console.log("Не удалось воспроизвести звук:", e));
+          }
+        });
+
+        marker.addEventListener('markerLost', () => {
+          console.log('Маркер потерян — пауза');
+          if (audio && !audio.paused) {
+            audio.pause();
+          }
+        });
       }
     });
   </script>
