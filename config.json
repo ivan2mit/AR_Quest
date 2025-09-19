@@ -1,6 +1,11 @@
 {
   "markers": [
     {
+      "marker": "hiro",
+      "model": "models/model1.glb",
+      "scale": "1.2 1.2 1.2"
+    },
+    {
       "marker": "kanji",
       "model": "models/cat.glb",
       "scale": "0.8 0.8 0.8"
