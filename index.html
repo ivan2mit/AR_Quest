@@ -1,82 +1,58 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>AR.js Custom + Hiro</title>
-    <script src="lib/aframe.min.js"></script>
+<head>
+  <meta charset="utf-8" />
+  <title>MindAR — Multi Marker Example</title>
+  <!-- Подключаем MindAR для Image Tracking -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.1/dist/mindar-image.prod.js"></script>
+  <!-- Подключаем A-Frame -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <!-- Подключаем интеграцию MindAR + A-Frame -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.1/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    /* Скрыть стандартный курсор */
+    .a-canvas {
+      cursor: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Сцена с трекингом по targets.mind -->
+  <a-scene mindar-image="imageTargetSrc: targets.mind;" renderer="colorManagement: true;" vr-mode-ui="enabled: false">
     
-    <script src="lib/aframe-ar.js"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #startButton {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 10px 20px;
-        font-size: 16px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        z-index: 10;
-      }
-    </style>
-  </head>
-  <body>
-    <button id="startButton">Включить звук</button>
+    <!-- Загружаем ресурсы -->
+    <a-assets>
+      <img id="marker1" src="images/marker1.jpg" />
+      <img id="marker2" src="images/marker2.jpg" />
+      <a-asset-item id="model1" src="models/model1.glb"></a-asset-item>
+      <a-asset-item id="model2" src="models/model2.glb"></a-asset-item>
+    </a-assets>
 
-    <a-scene
-      vr-mode-ui="enabled: false"
-      embedded
-      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: true;"
-    >
-      <a-entity camera></a-entity>
-    </a-scene>
+    <!-- Модель для первого маркера (targetIndex: 0) -->
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-entity
+        gltf-model="#model1"
+        scale="0.05 0.05 0.05"
+        position="0 0 0"
+        rotation="0 0 0"
+        animation-mixer
+      ></a-entity>
+    </a-entity>
 
-    <script>
-      let soundEnabled = false;
+    <!-- Модель для второго маркера (targetIndex: 1) -->
+    <a-entity mindar-image-target="targetIndex: 1">
+      <a-entity
+        gltf-model="#model2"
+        scale="0.03 0.03 0.03"
+        position="0 0 0"
+        rotation="0 0 0"
+        animation-mixer
+      ></a-entity>
+    </a-entity>
 
-      document.getElementById('startButton').addEventListener('click', () => {
-        soundEnabled = true;
-        document.getElementById('startButton').style.display = 'none';
-      });
-
-      async function init() {
-        const response = await fetch('config.json');
-        const data = await response.json();
-        const markers = data.markers; // ← Берём массив из поля "markers"
-
-        const scene = document.querySelector('a-scene');
-
-        markers.forEach(item => {
-          const marker = document.createElement('a-marker');
-
-          // Если marker = "hiro" → используем встроенный пресет
-          if (item.marker === "hiro") {
-            marker.setAttribute('preset', 'hiro');
-          } else {
-            marker.setAttribute('type', 'pattern');
-            marker.setAttribute('url', item.marker);
-          }
-
-          // 3D модель
-          const model = document.createElement('a-entity');
-          model.setAttribute('gltf-model', item.model);
-          model.setAttribute('scale', item.scale || '1 1 1');
-          model.setAttribute('position', item.position || '0 0 0');
-          model.setAttribute('animation-mixer', '');
-
-          // Звук
-
-
-          marker.appendChild(model);
-          scene.appendChild(marker);
-        });
-      }
-
-      init();
-    </script>
-  </body>
+    <!-- Камера и источник видео -->
+    <a-entity camera></a-entity>
+  </a-scene>
+</body>
 </html>
