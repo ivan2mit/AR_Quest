@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MindAR — One Model at a Time</title>
+  <title>MindAR — One Model at a Time (Fixed)</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 
-  <!-- ✅ ОФИЦИАЛЬНЫЙ MindAR для A-Frame (через jsDelivr CDN) -->
+  <!-- ✅ Официальный MindAR через jsDelivr -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
@@ -28,7 +28,7 @@
   </style>
 </head>
 <body>
-  <div id="loading">Загрузка... Наведите камеру на изображение</div>
+  <div id="loading">Загрузка моделей... Пожалуйста, подождите</div>
 
   <a-scene
     mindar-image="imageTargetSrc: target.mind; maxTrack: 1;"
@@ -36,7 +36,8 @@
     vr-mode-ui="enabled: false"
     renderer="colorManagement: true; physicallyCorrectLights: true;"
     loading-screen="enabled: false"
-    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+    id="scene">
 
     <!-- Камера и свет -->
     <a-entity camera></a-entity>
@@ -46,63 +47,97 @@
     <!-- Трекер 1 → model1.glb -->
     <a-entity id="target1" mindar-image-target="targetIndex: 0" visible="false">
       <a-entity
+        id="model1"
         gltf-model="./models/model1.glb"
         scale="0.5 0.5 0.5"
         position="0 0 0"
         rotation="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
+        visible="false">
       </a-entity>
     </a-entity>
 
     <!-- Трекер 2 → model2.glb -->
     <a-entity id="target2" mindar-image-target="targetIndex: 1" visible="false">
       <a-entity
+        id="model2"
         gltf-model="./models/model2.glb"
         scale="0.5 0.5 0.5"
         position="0 0 0"
         rotation="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
+        visible="false">
       </a-entity>
     </a-entity>
 
   </a-scene>
 
   <script>
-    const scene = document.querySelector('a-scene');
+    const scene = document.getElementById('scene');
     const loading = document.getElementById('loading');
 
-    // Скрываем лоадер после запуска рендера
-    scene.addEventListener('renderstart', () => {
-      setTimeout(() => {
-        loading.style.display = 'none';
-      }, 1000);
-    });
-
-    // Получаем оба таргета
+    const model1 = document.getElementById('model1');
+    const model2 = document.getElementById('model2');
     const target1 = document.getElementById('target1');
     const target2 = document.getElementById('target2');
 
-    // Обработчики для первого таргета
-    target1.addEventListener('targetFound', () => {
-      target1.setAttribute('visible', 'true');
-      target2.setAttribute('visible', 'false');
-      console.log("🎯 Активно: изображение 1 → model1.glb");
-    });
+    let modelsLoaded = 0;
+    const totalModels = 2;
 
-    target1.addEventListener('targetLost', () => {
-      target1.setAttribute('visible', 'false');
-    });
+    // Функция для отслеживания загрузки моделей
+    function onModelLoaded() {
+      modelsLoaded++;
+      if (modelsLoaded === totalModels) {
+        // Все модели загружены — можно скрывать лоадер и включать логику
+        setTimeout(() => {
+          loading.style.display = 'none';
+          enableTrackingLogic();
+        }, 500);
+      }
+    }
 
-    // Обработчики для второго таргета
-    target2.addEventListener('targetFound', () => {
-      target2.setAttribute('visible', 'true');
-      target1.setAttribute('visible', 'false');
-      console.log("🎯 Активно: изображение 2 → model2.glb");
-    });
+    // Слушаем событие загрузки моделей
+    model1.addEventListener('model-loaded', onModelLoaded);
+    model2.addEventListener('model-loaded', onModelLoaded);
 
-    target2.addEventListener('targetLost', () => {
-      target2.setAttribute('visible', 'false');
-    });
+    // Логика переключения моделей — активируем ТОЛЬКО после загрузки
+    function enableTrackingLogic() {
+      console.log("✅ Все модели загружены. AR готов к работе.");
+
+      target1.addEventListener('targetFound', () => {
+        target1.setAttribute('visible', 'true');
+        model1.setAttribute('visible', 'true');
+        target2.setAttribute('visible', 'false');
+        model2.setAttribute('visible', 'false');
+        console.log("🎯 Активно: изображение 1 → model1.glb");
+      });
+
+      target1.addEventListener('targetLost', () => {
+        target1.setAttribute('visible', 'false');
+        model1.setAttribute('visible', 'false');
+      });
+
+      target2.addEventListener('targetFound', () => {
+        target2.setAttribute('visible', 'true');
+        model2.setAttribute('visible', 'true');
+        target1.setAttribute('visible', 'false');
+        model1.setAttribute('visible', 'false');
+        console.log("🎯 Активно: изображение 2 → model2.glb");
+      });
+
+      target2.addEventListener('targetLost', () => {
+        target2.setAttribute('visible', 'false');
+        model2.setAttribute('visible', 'false');
+      });
+    }
+
+    // Если модели уже загружены (кешированы), активируем логику сразу
+    if (model1.hasLoaded && model2.hasLoaded) {
+      setTimeout(() => {
+        loading.style.display = 'none';
+        enableTrackingLogic();
+      }, 500);
+    }
   </script>
 </body>
 </html>
