@@ -1,15 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MindAR — One Model at a Time (Fixed)</title>
-
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-
-  <!-- ✅ Официальный MindAR через jsDelivr -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
   <style>
     body { margin: 0; overflow: hidden; }
     #loading {
@@ -18,126 +12,84 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: white;
-      font-family: Arial, sans-serif;
       background: rgba(0,0,0,0.7);
       padding: 12px 24px;
-      border-radius: 10px;
+      border-radius: 8px;
+      font-family: Arial;
       z-index: 999;
-      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <div id="loading">Загрузка моделей... Пожалуйста, подождите</div>
+  <div id="loading">Загрузка моделей...</div>
 
   <a-scene
     mindar-image="imageTargetSrc: target.mind; maxTrack: 1;"
-    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
-    renderer="colorManagement: true; physicallyCorrectLights: true;"
-    loading-screen="enabled: false"
-    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
-    id="scene">
+    device-orientation-permission-ui="enabled: false"
+    loading-screen="enabled: false">
 
-    <!-- Камера и свет -->
-    <a-entity camera></a-entity>
-    <a-entity light="type: ambient; intensity: 1.0"></a-entity>
-    <a-entity light="type: directional; intensity: 0.8; color: #FFF" position="1 1 1"></a-entity>
+    <!-- ✅ Предзагрузка моделей через a-assets -->
+    <a-assets>
+      <a-asset-item id="model1" src="./models/model1.glb"></a-asset-item>
+      <a-asset-item id="model2" src="./models/model2.glb"></a-asset-item>
+    </a-assets>
 
-    <!-- Трекер 1 → model1.glb -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Трекер 1 -->
     <a-entity id="target1" mindar-image-target="targetIndex: 0" visible="false">
-      <a-entity
-        id="model1"
-        gltf-model="./models/model1.glb"
+      <a-gltf-model
+        src="#model1"
         scale="0.5 0.5 0.5"
         position="0 0 0"
         rotation="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
-        visible="false">
-      </a-entity>
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
+      </a-gltf-model>
     </a-entity>
 
-    <!-- Трекер 2 → model2.glb -->
+    <!-- Трекер 2 -->
     <a-entity id="target2" mindar-image-target="targetIndex: 1" visible="false">
-      <a-entity
-        id="model2"
-        gltf-model="./models/model2.glb"
+      <a-gltf-model
+        src="#model2"
         scale="0.5 0.5 0.5"
         position="0 0 0"
         rotation="0 0 0"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
-        visible="false">
-      </a-entity>
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear">
+      </a-gltf-model>
     </a-entity>
 
   </a-scene>
 
   <script>
-    const scene = document.getElementById('scene');
+    const scene = document.querySelector('a-scene');
     const loading = document.getElementById('loading');
 
-    const model1 = document.getElementById('model1');
-    const model2 = document.getElementById('model2');
-    const target1 = document.getElementById('target1');
-    const target2 = document.getElementById('target2');
+    // Ждём, пока все ассеты загрузятся
+    scene.addEventListener('loaded', () => {
+      console.log("✅ Сцена и все ассеты загружены");
 
-    let modelsLoaded = 0;
-    const totalModels = 2;
-
-    // Функция для отслеживания загрузки моделей
-    function onModelLoaded() {
-      modelsLoaded++;
-      if (modelsLoaded === totalModels) {
-        // Все модели загружены — можно скрывать лоадер и включать логику
-        setTimeout(() => {
-          loading.style.display = 'none';
-          enableTrackingLogic();
-        }, 500);
-      }
-    }
-
-    // Слушаем событие загрузки моделей
-    model1.addEventListener('model-loaded', onModelLoaded);
-    model2.addEventListener('model-loaded', onModelLoaded);
-
-    // Логика переключения моделей — активируем ТОЛЬКО после загрузки
-    function enableTrackingLogic() {
-      console.log("✅ Все модели загружены. AR готов к работе.");
+      // Теперь можно активировать логику переключения
+      const target1 = document.getElementById('target1');
+      const target2 = document.getElementById('target2');
 
       target1.addEventListener('targetFound', () => {
         target1.setAttribute('visible', 'true');
-        model1.setAttribute('visible', 'true');
         target2.setAttribute('visible', 'false');
-        model2.setAttribute('visible', 'false');
-        console.log("🎯 Активно: изображение 1 → model1.glb");
-      });
-
-      target1.addEventListener('targetLost', () => {
-        target1.setAttribute('visible', 'false');
-        model1.setAttribute('visible', 'false');
+        console.log("🎯 Показываем model1.glb");
       });
 
       target2.addEventListener('targetFound', () => {
         target2.setAttribute('visible', 'true');
-        model2.setAttribute('visible', 'true');
         target1.setAttribute('visible', 'false');
-        model1.setAttribute('visible', 'false');
-        console.log("🎯 Активно: изображение 2 → model2.glb");
+        console.log("🎯 Показываем model2.glb");
       });
 
-      target2.addEventListener('targetLost', () => {
-        target2.setAttribute('visible', 'false');
-        model2.setAttribute('visible', 'false');
-      });
-    }
-
-    // Если модели уже загружены (кешированы), активируем логику сразу
-    if (model1.hasLoaded && model2.hasLoaded) {
-      setTimeout(() => {
-        loading.style.display = 'none';
-        enableTrackingLogic();
-      }, 500);
-    }
+      // Скрываем лоадер
+      loading.style.display = 'none';
+    });
   </script>
 </body>
 </html>
